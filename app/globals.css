@@ -1,0 +1,53 @@
+/* Глобальные стили приложения
+
+Этот файл содержит:
+- Директивы Tailwind CSS (@tailwind)
+- Глобальные CSS переменные
+- Базовые стили для body и других элементов */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 31, 41, 55;
+  --background-rgb: 255, 255, 255;
+  --primary-color: #111827;
+  --primary-hover: #1F2937;
+  --secondary-color: #E5E7EB;
+  --accent-color: #374151;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Улучшение стилей для форм */
+input, select, textarea {
+  @apply border-gray-300 focus:border-gray-800 focus:ring focus:ring-gray-200 focus:ring-opacity-50 rounded-md shadow-sm;
+}
+
+/* Плавные переходы для интерактивных элементов */
+a, button {
+  @apply transition-all duration-200;
+}
+
+/* Стили для скроллбара */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+} 

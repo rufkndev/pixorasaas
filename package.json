@@ -1,0 +1,50 @@
+{
+  "name": "pixorasaas",
+  "version": "1.0.0",
+  "description": "Современное веб-приложение для генерации полного брендинга с использованием искусственного интеллекта.",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "server": "ts-node-dev backend/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.2",
+    "axios": "^1.10.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^4.18.2",
+    "next": "^15.2.1",
+    "next-auth": "^4.24.5",
+    "openai": "^4.0.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.13",
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rufkndev/pixorasaas.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rufkndev/pixorasaas/issues"
+  },
+  "homepage": "https://github.com/rufkndev/pixorasaas#readme"
+}

@@ -1,0 +1,13 @@
+# Cursor - Игнорируем все файлы Cursor
+.cursor
+.cursor/*
+.cursorrules.txt
+
+node_modules/
+.next/
+.env.local
+.env.server
+dist/
+out/
+*.log
+*.DS_Store
