@@ -294,7 +294,7 @@ export default function LogoGeneratorPage() {
                               </Link>
                               <Link
                                 href={{
-                                  pathname: '/brandbook-generator',
+                                  pathname: '/pages/brandbook-generator',
                                   query: { 
                                     name: name,
                                     keywords: keywords,

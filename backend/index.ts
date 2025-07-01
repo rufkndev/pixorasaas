@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 // Импорт маршрутов
 import generateNameRoutes from './routes/generateName';
 import generateLogoRoutes from './routes/generateLogo';
-//import generateBrandbookRoutes from './routes/generateBrandbook';
+import generateBrandbookRoutes from './routes/generateBrandbook';
 
 // Загрузка переменных окружения
 config({ path: '.env.local' });
@@ -50,7 +50,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', generateNameRoutes);
 app.use('/api', generateLogoRoutes);
-//app.use('/api', generateBrandbookRoutes);
+app.use('/api', generateBrandbookRoutes);
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

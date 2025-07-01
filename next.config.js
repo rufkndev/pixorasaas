@@ -9,6 +9,9 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    // Разрешаем локальные изображения
+    unoptimized: false,
+    domains: ['localhost'],
   },
 };
 

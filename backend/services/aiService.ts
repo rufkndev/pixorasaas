@@ -184,53 +184,7 @@ export class AIService {
     return logoUrl;
   }
 
-  // Генерация слогана
-  async generateSlogan(name: string, keywords: string, style: string): Promise<string> {
-    try {
-      const prompt = `Создай короткий и запоминающийся рекламный слоган для бренда "${name}". 
-      Сфера деятельности и ключевые характеристики бизнеса: ${keywords}.
-      Стиль бренда: ${style}.
-      Слоган должен быть кратким (до 7 слов), легко запоминаться и вызывать положительные эмоции.
-      Учитывай название "${name}" и делай слоган уникальным для этого бизнеса.
-      Верни только текст слогана без кавычек и пояснений.`;
 
-      const initialResponse = await axios.post(`${this.baseUrl}/networks/gpt-4o`, {
-        messages: [
-          {
-            role: "system",
-            content: "Ты - креативный копирайтер и эксперт по маркетингу. Твоя задача - создать уникальный, короткий и запоминающийся слоган, который идеально подходит конкретному бренду."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 60
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        timeout: 30000
-      });
-
-      if (!initialResponse.data.request_id) {
-        return `Инновационные решения от ${name}`;
-      }
-
-      const completedResponse = await this.waitForResult(initialResponse.data.request_id);
-      let slogan = this.extractTextFromResponse(completedResponse);
-      
-      // Убираем кавычки если есть
-      slogan = slogan.replace(/^["']|["']$/g, '');
-      
-      return slogan.length >= 3 ? slogan : `Инновационные решения от ${name}`;
-    } catch (error) {
-      console.error('Error generating slogan:', error);
-      return `Инновационные решения от ${name}`;
-    }
-  }
 
   // Создание промпта для логотипа
   private createLogoPrompt(name: string, keywords: string): string {
@@ -343,7 +297,5 @@ export const aiService = {
   generateNames: (industry: string, keywords: string, style: string, preferences?: string) => 
     getAIService().generateNames(industry, keywords, style, preferences),
   generateLogo: (businessName: string, keywords: string) => 
-    getAIService().generateLogo(businessName, keywords),
-  generateSlogan: (name: string, keywords: string, style: string) => 
-    getAIService().generateSlogan(name, keywords, style)
+    getAIService().generateLogo(businessName, keywords)
 }; 
