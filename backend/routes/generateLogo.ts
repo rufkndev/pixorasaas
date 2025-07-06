@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { aiService } from '../services/aiService';
+import { logoService } from '../services/logoService';
 import { getSupabaseClient } from '../index';
 
 const router = Router();
@@ -8,19 +8,6 @@ const router = Router();
 router.post('/generate-logo', async (req: any, res: any) => {
   try {
     const { name, keywords, userId, selectedName } = req.body;
-
-    // Проверка обязательных параметров
-    if (!name || !keywords) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    if (!process.env.GENAPI_KEY) {
-      return res.status(500).json({ error: 'Server configuration error: GenAPI key is missing' });
-    }
 
     const businessName = selectedName || name;
 
@@ -46,7 +33,7 @@ router.post('/generate-logo', async (req: any, res: any) => {
     }
 
     // Генерация логотипа
-    const logoUrl = await aiService.generateLogo(businessName, keywords);
+    const logoUrl = await logoService.generateLogo(businessName, keywords);
 
     // Сохранение в базу данных
     try {

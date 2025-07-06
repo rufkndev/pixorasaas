@@ -1,19 +1,25 @@
 //Express.js Backend Server for Pixora
 
+// Загрузка переменных окружения В ПЕРВУЮ ОЧЕРЕДЬ!
+import { config } from 'dotenv';
+import path from 'path';
+
+// Загружаем переменные окружения из корня проекта
+config({ path: path.join(__dirname, '../.env.local') });
+
+console.log('Loading environment variables...');
+console.log('NOUN_PROJECT_KEY:', process.env.NOUN_PROJECT_KEY ? 'Found' : 'Not found');
+console.log('NOUN_PROJECT_SECRET:', process.env.NOUN_PROJECT_SECRET ? 'Found' : 'Not found');
 
 // Импорт необходимых библиотек и модулей
 import express from 'express';
 import cors from 'cors';
-import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
 // Импорт маршрутов
 import generateNameRoutes from './routes/generateName';
 import generateLogoRoutes from './routes/generateLogo';
 import generateBrandbookRoutes from './routes/generateBrandbook';
-
-// Загрузка переменных окружения
-config({ path: '.env.local' });
 
 const app = express();
 const PORT = process.env.PORT || 3001;

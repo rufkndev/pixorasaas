@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { aiService } from '../services/aiService';
+import { nameService } from '../services/nameService';
 import { getSupabaseClient } from '../index';
 
 const router = Router();
@@ -15,7 +15,7 @@ router.post('/generate-names', async (req: any, res: any) => {
 
     try {
       // Генерируем названия через AI сервис
-      const generatedNames = await aiService.generateNames(industry, keywords, style, preferences);
+      const generatedNames = await nameService.generateNames(industry, keywords, style, preferences);
       
       console.log('Generated names:', generatedNames);
 
@@ -56,21 +56,6 @@ router.post('/generate-names', async (req: any, res: any) => {
         if (insertError) {
           console.error('Error inserting to database:', insertError);
           console.error('Error details:', JSON.stringify(insertError, null, 2));
-          
-          // Проверяем, используется ли Service Role Key
-          const isServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-          console.log('Using Service Role Key:', isServiceRole);
-          
-          // Если не используется Service Role Key, то проблема в RLS политиках
-          if (!isServiceRole) {
-            console.error('Service Role Key is not configured. Database operations may fail due to RLS policies.');
-          }
-          
-          // Возвращаем названия с предупреждением
-          return res.status(200).json({ 
-            names: generatedNames,
-            warning: 'Names were generated but could not be saved to database. Please check server configuration.'
-          });
         }
 
         console.log('Successfully saved to database:', insertData);
@@ -127,15 +112,6 @@ router.get('/user-names/:userId', async (req: any, res: any) => {
     // Обрабатываем ошибку
     if (selectError) {
       console.error('Error fetching user names:', selectError);
-      console.error('Error details:', JSON.stringify(selectError, null, 2));
-      
-      // Проверяем, используется ли Service Role Key
-      const isServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-      console.log('Using Service Role Key:', isServiceRole);
-      
-      if (!isServiceRole) {
-        console.error('Service Role Key is not configured. Database queries may fail due to RLS policies.');
-      }
       
       return res.status(500).json({ error: 'Failed to fetch generated names' });
     }

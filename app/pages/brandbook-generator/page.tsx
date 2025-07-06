@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -9,7 +9,7 @@ import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
 
 // Компонент страницы генерации брендбука
-export default function BrandbookGeneratorPage() {
+function BrandbookGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -18,6 +18,8 @@ export default function BrandbookGeneratorPage() {
   const name = searchParams.get('name') || '';
   const keywords = searchParams.get('keywords') || '';
   const logoUrl = searchParams.get('logoUrl') || '';
+  const industry = searchParams.get('industry') || '';
+  const style = searchParams.get('style') || '';
   
   // Состояние для отслеживания генерации брендбука
   const [isGenerating, setIsGenerating] = useState(false);
@@ -62,6 +64,8 @@ export default function BrandbookGeneratorPage() {
           keywords,
           logoUrl,
           userId: user.id,
+          industry,
+          brandStyle: style,
         }),
       });
       
@@ -74,7 +78,6 @@ export default function BrandbookGeneratorPage() {
       // Устанавливаем сгенерированный брендбук
       setBrandbook(data.brandbook);
       
-      console.log('Brandbook generated successfully:', data);
     } catch (err: any) {
       console.error('Error generating brandbook:', err);
       setError(`Произошла ошибка при генерации брендбука: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
@@ -251,7 +254,7 @@ export default function BrandbookGeneratorPage() {
                         ))}
                       </div>
                     ) : brandbook?.logoVariants && brandbook.logoVariants.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                         {brandbook.logoVariants.map((variant: any, index: number) => (
                           <div key={index} className="text-center">
                             <div className={`
@@ -275,9 +278,42 @@ export default function BrandbookGeneratorPage() {
                             </div>
                           </div>
                         ))}
+                        
+                        {/* Дополнительные вариации доступные после оплаты */}
+                        <div className="text-center">
+                          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 mb-3 min-h-32 flex items-center justify-center">
+                            <div className="text-gray-400 text-xs flex flex-col items-center">
+                              <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                              <span>После оплаты</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-gray-500">Логотип с названием</p>
+                            <p className="text-xs text-gray-400">Горизонтальная версия с названием компании</p>
+                            <p className="text-xs text-gray-400 italic">Для фирменных бланков, презентаций, веб-сайта</p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-center">
+                          <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6 mb-3 min-h-32 flex items-center justify-center">
+                            <div className="text-gray-400 text-xs flex flex-col items-center">
+                              <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                              <span>После оплаты</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-gray-500">Логотип-аббревиатура</p>
+                            <p className="text-xs text-gray-400">Упрощенная версия с инициалами</p>
+                            <p className="text-xs text-gray-400 italic">Для фавиконок, мобильных приложений, соцсетей</p>
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                         {[
                           { 
                             name: 'Монохромная версия', 
@@ -299,6 +335,20 @@ export default function BrandbookGeneratorPage() {
                             border: 'border-gray-200',
                             description: 'Основная цветная версия логотипа',
                             usage: 'Используется в основных материалах бренда'
+                          },
+                          { 
+                            name: 'Логотип с названием', 
+                            bg: 'bg-white', 
+                            border: 'border-gray-200',
+                            description: 'Горизонтальная версия с названием компании',
+                            usage: 'Для фирменных бланков, презентаций, веб-сайта'
+                          },
+                          { 
+                            name: 'Логотип-аббревиатура', 
+                            bg: 'bg-white', 
+                            border: 'border-gray-200',
+                            description: 'Упрощенная версия с инициалами',
+                            usage: 'Для фавиконок, мобильных приложений, соцсетей'
                           }
                         ].map((variant, index) => (
                           <div key={index} className="text-center">
@@ -324,7 +374,14 @@ export default function BrandbookGeneratorPage() {
                   {/* Цветовая палитра */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Цветовая палитра</h2>
+                    
                     <div className="space-y-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          🎨 Полная цветовая палитра с точными кодами цветов будет доступна в полном брендбуке
+                        </p>
+                      </div>
+                      
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800 mb-2">Основные цвета</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -359,56 +416,137 @@ export default function BrandbookGeneratorPage() {
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Фирменные шрифты</h2>
                     <div className="space-y-6">
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Основной шрифт (Заголовки)</h3>
-                        <div className="mb-3">
-                          <p className="text-3xl font-bold text-gray-900">[Название шрифта]</p>
-                          <p className="text-sm text-gray-500 mt-1">Название семейства шрифтов</p>
-                        </div>
-                        <div className="text-gray-700">
-                          <p className="text-2xl font-bold">АБВГДабвгд 123</p>
-                          <p className="text-xl font-semibold">АБВГДабвгд 123</p>
-                          <p className="text-lg font-medium">АБВГДабвгд 123</p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          📝 Точные названия шрифтов и ссылки для скачивания будут доступны в полном брендбуке
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Основные шрифты</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-md font-semibold text-gray-700 mb-2">Основной шрифт №1 (Заголовки)</h4>
+                            <div className="mb-3">
+                              <p className="text-2xl font-bold text-gray-900">[Название шрифта]</p>
+                              <p className="text-sm text-gray-500 mt-1">Семейство шрифтов</p>
+                            </div>
+                            <div className="text-gray-700">
+                              <p className="text-xl font-bold">АБВГДабвгд 123</p>
+                              <p className="text-lg font-semibold">АБВГДабвгд 123</p>
+                              <p className="text-md font-medium">АБВГДабвгд 123</p>
+                            </div>
+                          </div>
+                          
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-md font-semibold text-gray-700 mb-2">Основной шрифт №2 (Заголовки)</h4>
+                            <div className="mb-3">
+                              <p className="text-2xl font-bold text-gray-900">[Название шрифта]</p>
+                              <p className="text-sm text-gray-500 mt-1">Семейство шрифтов</p>
+                            </div>
+                            <div className="text-gray-700">
+                              <p className="text-xl font-bold">АБВГДабвгд 123</p>
+                              <p className="text-lg font-semibold">АБВГДабвгд 123</p>
+                              <p className="text-md font-medium">АБВГДабвгд 123</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Дополнительный шрифт (Текст)</h3>
-                        <div className="mb-3">
-                          <p className="text-2xl text-gray-900">[Название шрифта]</p>
-                          <p className="text-sm text-gray-500 mt-1">Название семейства шрифтов</p>
-                        </div>
-                        <div className="text-gray-700">
-                          <p className="text-lg">АБВГДабвгд 123 - Regular</p>
-                          <p className="text-lg font-medium">АБВГДабвгд 123 - Medium</p>
-                          <p className="text-lg font-bold">АБВГДабвгд 123 - Bold</p>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Дополнительные шрифты</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-md font-semibold text-gray-700 mb-2">Дополнительный шрифт №1 (Текст)</h4>
+                            <div className="mb-3">
+                              <p className="text-xl text-gray-900">[Название шрифта]</p>
+                              <p className="text-sm text-gray-500 mt-1">Семейство шрифтов</p>
+                            </div>
+                            <div className="text-gray-700">
+                              <p className="text-md">АБВГДабвгд 123 - Regular</p>
+                              <p className="text-md font-medium">АБВГДабвгд 123 - Medium</p>
+                              <p className="text-md font-bold">АБВГДабвгд 123 - Bold</p>
+                            </div>
+                          </div>
+                          
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="text-md font-semibold text-gray-700 mb-2">Дополнительный шрифт №2 (Текст)</h4>
+                            <div className="mb-3">
+                              <p className="text-xl text-gray-900">[Название шрифта]</p>
+                              <p className="text-sm text-gray-500 mt-1">Семейство шрифтов</p>
+                            </div>
+                            <div className="text-gray-700">
+                              <p className="text-md">АБВГДабвгд 123 - Regular</p>
+                              <p className="text-md font-medium">АБВГДабвгд 123 - Medium</p>
+                              <p className="text-md font-bold">АБВГДабвгд 123 - Bold</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Фирменные иконки */}
+                  {/* Фирменные иконки и элементы */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Фирменные иконки</h2>
-                    <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-4">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((icon) => (
-                        <div key={icon} className="text-center">
-                          <div className="w-12 h-12 mx-auto bg-gray-200 rounded-lg flex items-center justify-center mb-2">
-                            <span className="text-gray-400 text-xs">[{icon}]</span>
-                          </div>
-                          <p className="text-xs text-gray-600">Иконка {icon}</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Фирменные иконки и элементы</h2>
+                    
+                    <div className="space-y-6">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          🎯 Уникальные иконки и элементы, созданные под ваш бизнес, будут доступны в полном брендбуке
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Фирменные иконки</h3>
+                        <div className="grid grid-cols-5 gap-4">
+                          {[1, 2, 3, 4, 5].map((index) => (
+                            <div key={index} className="text-center">
+                              <div className="w-16 h-16 mx-auto bg-gray-200 rounded-lg flex items-center justify-center mb-2">
+                                <span className="text-gray-400 text-xs">[ICON]</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Фирменные элементы</h3>
+                        <div className="grid grid-cols-5 gap-4">
+                          {[
+                            { name: 'Рамка', type: 'frame' },
+                            { name: 'Паттерн', type: 'pattern' },
+                            { name: 'Разделитель', type: 'divider' },
+                            { name: 'Декор', type: 'decoration' },
+                            { name: 'Фон', type: 'background' }
+                          ].map((element, index) => (
+                            <div key={index} className="text-center">
+                              <div className="w-16 h-16 mx-auto bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-2">
+                                <span className="text-gray-400 text-xs">[{element.type.toUpperCase()}]</span>
+                              </div>
+                              <p className="text-xs text-gray-600">{element.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm text-gray-500 mt-6">
+                        Набор фирменных иконок и графических элементов в едином стиле для использования в маркетинговых материалах, 
+                        презентациях и цифровых продуктах
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-500 mt-4">
-                      Набор фирменных иконок в едином стиле для использования в маркетинговых материалах
-                    </p>
                   </div>
 
                   {/* Руководство по стилю */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Руководство по стилю</h2>
                     <div className="space-y-6">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          📋 Подробное руководство с техническими требованиями и примерами использования брендинга будет доступно в полном брендбуке
+                        </p>
+                      </div>
+                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="border border-gray-200 rounded-lg p-4">
                           <h3 className="text-lg font-semibold text-gray-800 mb-3">Правила использования логотипа</h3>
@@ -465,12 +603,15 @@ export default function BrandbookGeneratorPage() {
                       <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link
                           href={{
-                            pathname: '/payment',
+                            pathname: '/pages/payment',
                             query: { 
                               product: 'brandbook', 
                               name: name,
                               keywords: keywords,
-                              logoUrl: logoUrl
+                              logoUrl: logoUrl,
+                              slogan: brandbook?.slogan || '',
+                              industry: industry,
+                              brandStyle: style
                             },
                           }}
                           className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -501,5 +642,21 @@ export default function BrandbookGeneratorPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function BrandbookGeneratorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Загрузка генератора брендбука...</h2>
+          <p className="text-gray-600">Пожалуйста, подождите</p>
+        </div>
+      </div>
+    }>
+      <BrandbookGeneratorContent />
+    </Suspense>
   );
 }

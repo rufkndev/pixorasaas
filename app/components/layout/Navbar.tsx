@@ -73,7 +73,7 @@ export default function Navbar() {
     console.log('Navigating to dashboard...');
     setIsDropdownOpen(false);
     setIsMenuOpen(false);
-    router.push('/dashboard');
+    router.push('/pages/dashboard');
   }, [router]);
 
   // Функция для выхода из аккаунта
@@ -157,7 +157,7 @@ export default function Navbar() {
               <span>{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь'}</span>
             </div>
             <a 
-              href="/dashboard"
+              href="/pages/dashboard"
               onClick={navigateToDashboard}
               className="block w-full text-left py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
             >
@@ -215,7 +215,7 @@ export default function Navbar() {
                 onMouseLeave={handleMouseLeave}
               >
                 <a 
-                  href="/dashboard"
+                  href="/pages/dashboard"
                   onClick={navigateToDashboard}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
                 >

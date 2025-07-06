@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -9,7 +9,7 @@ import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
 
 // Компонент страницы генерации логотипа
-export default function LogoGeneratorPage() {
+function LogoGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -17,6 +17,8 @@ export default function LogoGeneratorPage() {
   // Получаем название и ключевые слова из URL параметров
   const name = searchParams.get('name') || '';
   const keywords = searchParams.get('keywords') || '';
+  const industry = searchParams.get('industry') || '';
+  const style = searchParams.get('style') || '';
   
   // Состояние для отслеживания генерации логотипа
   const [isGenerating, setIsGenerating] = useState(false);
@@ -44,9 +46,6 @@ export default function LogoGeneratorPage() {
       // Вызов API для генерации логотипа
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-logo`;
       
-      console.log('Sending logo generation request to:', apiUrl);
-      console.log('Request data:', { name, keywords, userId: user.id });
-      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -62,10 +61,6 @@ export default function LogoGeneratorPage() {
       });
       
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Ошибка при генерации логотипа');
-      }
       
       // Устанавливаем URL сгенерированного логотипа
       setLogoUrl(data.logoUrl);
@@ -281,7 +276,7 @@ export default function LogoGeneratorPage() {
                             <div className="space-y-2">
                               <Link
                                 href={{
-                                  pathname: '/payment',
+                                  pathname: '/pages/payment',
                                   query: { 
                                     product: 'brandbook', 
                                     name: name,
@@ -298,7 +293,9 @@ export default function LogoGeneratorPage() {
                                   query: { 
                                     name: name,
                                     keywords: keywords,
-                                    logoUrl: logoUrl
+                                    logoUrl: logoUrl,
+                                    industry: industry,
+                                    style: style
                                   },
                                 }}
                                 className="block w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -424,4 +421,20 @@ export default function LogoGeneratorPage() {
       <Footer />
     </>
   );
-} 
+}
+
+export default function LogoGeneratorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Загрузка генератора логотипа...</h2>
+          <p className="text-gray-600">Пожалуйста, подождите</p>
+        </div>
+      </div>
+    }>
+      <LogoGeneratorContent />
+    </Suspense>
+  );
+}

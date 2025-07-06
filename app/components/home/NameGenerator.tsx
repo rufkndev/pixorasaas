@@ -98,7 +98,7 @@ export default function NameGenerator() {
 
   const proceedToNextStep = () => {
     if (selectedName && keywords) {
-      router.push(`/pages/logo-generator?name=${encodeURIComponent(selectedName)}&keywords=${encodeURIComponent(keywords)}`);
+      router.push(`/pages/logo-generator?name=${encodeURIComponent(selectedName)}&keywords=${encodeURIComponent(keywords)}&industry=${encodeURIComponent(industry)}&style=${encodeURIComponent(style)}`);
     }
   };
 

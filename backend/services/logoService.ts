@@ -14,27 +14,6 @@ export interface GeneratedResponse {
   [key: string]: any;
 }
 
-export interface ColorPalette {
-  name: string;
-  hex: string;
-  rgb: string;
-  usage: string;
-}
-
-export interface Font {
-  name: string;
-  type: string;
-  url: string;
-  category: string;
-}
-
-export interface BrandElement {
-  name: string;
-  svg?: string;
-  description: string;
-  usage: string;
-}
-
 export interface LogoVariant {
   name: string;
   url: string;
@@ -46,8 +25,8 @@ export interface LogoVariant {
   font?: string;
 }
 
-// Основные функции для работы с GenAPI
-export class AIService {
+// Сервис для генерации логотипов
+export class LogoService {
   private apiKey: string;
   private baseUrl = 'https://api.gen-api.ru/api/v1';
 
@@ -94,66 +73,6 @@ export class AIService {
     throw new Error(`Timeout waiting for GenAPI result after ${maxAttempts} attempts`);
   }
 
-  // Извлечение текста из ответа GenAPI
-  extractTextFromResponse(response: GeneratedResponse): string {
-    // Проверяем наиболее вероятные места расположения текста
-    const textSources = [
-      () => response.full_response?.[0]?.message?.content,
-      () => response.result?.choices?.[0]?.message?.content,
-      () => response.result?.text,
-      () => typeof response.result === 'string' ? response.result : null,
-      () => Array.isArray(response.result) ? response.result.join('\n') : null
-    ];
-    
-    for (const getSource of textSources) {
-      const text = getSource();
-      if (text && typeof text === 'string') {
-        return text;
-      }
-    }
-    
-    throw new Error(`Could not extract text from response: ${JSON.stringify(response)}`);
-  }
-
-  // Генерация названий компаний
-  async generateNames(industry: string, keywords: string, style: string, preferences?: string): Promise<string[]> {
-    const prompt = `Сгенерируй 6 уникальных и креативных названий для бизнеса в нише "${industry}". 
-    Используй следующие ключевые слова: ${keywords}. 
-    Стиль названий должен быть: ${style}. 
-    Дополнительные пожелания: ${preferences || 'нет'}. 
-    Названия должны быть краткими, запоминающимися и уникальными. 
-    Верни только список названий, каждое название с новой строки, без нумерации и дополнительных пояснений.`;
-
-    const initialResponse = await axios.post(`${this.baseUrl}/networks/gpt-4o`, {
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 200
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      }
-    });
-
-    if (!initialResponse.data.request_id) {
-      throw new Error('No request_id in response');
-    }
-
-    const completedResponse = await this.waitForResult(initialResponse.data.request_id);
-    const generatedText = this.extractTextFromResponse(completedResponse);
-    
-    const generatedNames = generatedText
-      .split('\n')
-      .map(name => name.trim())
-      .filter(name => name.length > 0);
-
-    if (generatedNames.length === 0) {
-      throw new Error('No names were generated');
-    }
-
-    return generatedNames;
-  }
-
   // Генерация логотипа
   async generateLogo(businessName: string, keywords: string): Promise<string> {
     const prompt = this.createLogoPrompt(businessName, keywords);
@@ -183,8 +102,6 @@ export class AIService {
     
     return logoUrl;
   }
-
-
 
   // Создание промпта для логотипа
   private createLogoPrompt(name: string, keywords: string): string {
@@ -281,21 +198,18 @@ The logo should capture the essence of ${formattedKeywords} while maintaining a 
   }
 }
 
-
 // Ленивая инициализация - создаем экземпляр только при первом вызове
-let aiServiceInstance: AIService | null = null;
+let logoServiceInstance: LogoService | null = null;
 
-export const getAIService = (): AIService => {
-  if (!aiServiceInstance) {
-    aiServiceInstance = new AIService();
+export const getLogoService = (): LogoService => {
+  if (!logoServiceInstance) {
+    logoServiceInstance = new LogoService();
   }
-  return aiServiceInstance;
+  return logoServiceInstance;
 };
 
 // Для обратной совместимости
-export const aiService = {
-  generateNames: (industry: string, keywords: string, style: string, preferences?: string) => 
-    getAIService().generateNames(industry, keywords, style, preferences),
+export const logoService = {
   generateLogo: (businessName: string, keywords: string) => 
-    getAIService().generateLogo(businessName, keywords)
+    getLogoService().generateLogo(businessName, keywords)
 }; 
