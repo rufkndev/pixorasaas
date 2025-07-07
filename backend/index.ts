@@ -8,8 +8,6 @@ import path from 'path';
 config({ path: path.join(__dirname, '../.env.local') });
 
 console.log('Loading environment variables...');
-console.log('NOUN_PROJECT_KEY:', process.env.NOUN_PROJECT_KEY ? 'Found' : 'Not found');
-console.log('NOUN_PROJECT_SECRET:', process.env.NOUN_PROJECT_SECRET ? 'Found' : 'Not found');
 
 // Импорт необходимых библиотек и модулей
 import express from 'express';

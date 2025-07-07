@@ -11,8 +11,6 @@ router.post('/generate-names', async (req: any, res: any) => {
     
     const { industry, keywords, style, preferences, userId } = req.body;
 
-    console.log('Generating names using AI service...');
-
     try {
       // Генерируем названия через AI сервис
       const generatedNames = await nameService.generateNames(industry, keywords, style, preferences);

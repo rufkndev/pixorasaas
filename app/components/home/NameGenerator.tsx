@@ -244,7 +244,7 @@ export default function NameGenerator() {
                     onChange={(e) => setPreferences(e.target.value)}
                     rows={3}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
-                    placeholder="Любые дополнительные пожелания или информация"
+                    placeholder="Любая дополнительная информация"
                   />
                 </div>
               </div>

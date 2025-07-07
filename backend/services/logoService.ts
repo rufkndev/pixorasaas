@@ -74,8 +74,8 @@ export class LogoService {
   }
 
   // Генерация логотипа
-  async generateLogo(businessName: string, keywords: string): Promise<string> {
-    const prompt = this.createLogoPrompt(businessName, keywords);
+  async generateLogo(businessName: string, keywords: string, industry: string): Promise<string> {
+    const prompt = this.createLogoPrompt(businessName, keywords, industry);
     
     const initialResponse = await axios.post(`${this.baseUrl}/networks/dalle-3`, {
       prompt: prompt,
@@ -104,24 +104,24 @@ export class LogoService {
   }
 
   // Создание промпта для логотипа
-  private createLogoPrompt(name: string, keywords: string): string {
+  private createLogoPrompt(name: string, keywords: string, industry: string): string {
     const formattedKeywords = keywords.split(',')
       .map(k => k.trim())
       .filter(k => k.length > 0)
       .join(', ');
     
-    return `Create a professional, minimalist logo for a business named "${name}" that specializes in ${formattedKeywords}. 
-The logo should be:
-- Clean, modern, and visually striking
-- Suitable for both digital and print media
-- Memorable and instantly recognizable
-- Using a sophisticated color palette that reflects the business essence
-- Without any text or typography
-- With clever use of negative space and geometric shapes
-- Balanced composition with strong visual hierarchy
-- Simple enough to be recognizable at small sizes
-
-The logo should capture the essence of ${formattedKeywords} while maintaining a timeless, professional aesthetic. Create the logo against a clean white background in a square format.`;
+    return `Create a minimalist, modern logo design for a business named "${name}" in the ${industry} sector.
+The logo must:
+- Be clean, abstract, and geometric
+- Fill the entire square frame (no excessive whitespace)
+- Use clever negative space, no gradients or shadows
+- Be iconic and recognizable at small sizes
+- Have a professional color palette that reflects ${formattedKeywords}
+- Appear centered on a pure white square canvas
+- Be a finalized, polished logo — not in progress
+Vector-style digital rendering only.  
+**Do not include** hands, people, text, handwriting, drawing tools, or any illustrative elements.
+`;
   }
 
   // Извлечение URL логотипа из ответа
@@ -210,6 +210,6 @@ export const getLogoService = (): LogoService => {
 
 // Для обратной совместимости
 export const logoService = {
-  generateLogo: (businessName: string, keywords: string) => 
-    getLogoService().generateLogo(businessName, keywords)
+  generateLogo: (businessName: string, keywords: string, industry: string) => 
+    getLogoService().generateLogo(businessName, keywords, industry)
 }; 

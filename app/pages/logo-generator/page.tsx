@@ -55,6 +55,7 @@ function LogoGeneratorContent() {
           name,
           keywords,
           userId: user.id,
+          industry,
           // name уже содержит выбранное пользователем название из URL-параметра
           selectedName: name
         }),
@@ -130,7 +131,7 @@ function LogoGeneratorContent() {
                   <div className="mb-8">
                     <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                       <h2 className="text-xl font-bold text-gray-900 mb-2">Информация о бизнесе</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                           <p className="text-sm font-medium text-gray-500">Название</p>
                           <p className="text-lg font-medium text-gray-900">{name}</p>
@@ -138,6 +139,10 @@ function LogoGeneratorContent() {
                         <div>
                           <p className="text-sm font-medium text-gray-500">Ключевые слова</p>
                           <p className="text-lg font-medium text-gray-900">{keywords}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Индустрия</p>
+                          <p className="text-lg font-medium text-gray-900">{industry}</p>
                         </div>
                       </div>
                     </div>

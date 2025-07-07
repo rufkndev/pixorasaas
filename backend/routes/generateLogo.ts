@@ -7,9 +7,35 @@ const router = Router();
 // Маршрут для генерации логотипа
 router.post('/generate-logo', async (req: any, res: any) => {
   try {
-    const { name, keywords, userId, selectedName } = req.body;
+    const { name, keywords, userId, selectedName, industry } = req.body;
+
+    // Логирование для диагностики
+    console.log('Generate logo request body:', req.body);
+    
+    // Валидация обязательных полей
+    if (!name && !selectedName) {
+      return res.status(400).json({ 
+        error: 'Name is required',
+        message: 'Business name is required for logo generation'
+      });
+    }
+    
+    if (!keywords) {
+      return res.status(400).json({ 
+        error: 'Keywords are required',
+        message: 'Keywords are required for logo generation'
+      });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        error: 'User ID is required',
+        message: 'User authentication is required'
+      });
+    }
 
     const businessName = selectedName || name;
+    const logoIndustry = industry || 'general';
 
     // Проверка лимита генераций
     try {
@@ -33,7 +59,8 @@ router.post('/generate-logo', async (req: any, res: any) => {
     }
 
     // Генерация логотипа
-    const logoUrl = await logoService.generateLogo(businessName, keywords);
+    console.log('Generating logo with:', { businessName, keywords, logoIndustry });
+    const logoUrl = await logoService.generateLogo(businessName, keywords, logoIndustry);
 
     // Сохранение в базу данных
     try {
@@ -46,6 +73,7 @@ router.post('/generate-logo', async (req: any, res: any) => {
           name: selectedName,
           keywords: keywords,
           logo_url: logoUrl,
+          industry: logoIndustry,
         })
         .select()
         .single();
@@ -56,6 +84,8 @@ router.post('/generate-logo', async (req: any, res: any) => {
           success: true,
           logoUrl: logoUrl,
           name: businessName,
+          keywords: keywords,
+          industry: logoIndustry,
           warning: 'Logo generated but could not be saved to database'
         });
       }
@@ -65,7 +95,8 @@ router.post('/generate-logo', async (req: any, res: any) => {
         logoId: logoData.id,
         logoUrl: logoUrl,
         name: businessName,
-        keywords: keywords
+        keywords: keywords,
+        industry: logoIndustry
       });
     } catch (dbError) {
       console.error('Database error:', dbError);
@@ -73,14 +104,24 @@ router.post('/generate-logo', async (req: any, res: any) => {
         success: true,
         logoUrl: logoUrl,
         name: businessName,
+        keywords: keywords,
+        industry: logoIndustry,
         warning: 'Logo generated but could not be saved to database'
       });
     }
   } catch (error: any) {
     console.error('Error generating logo:', error);
+    
+    // Более подробное логирование ошибок
+    if (error.response) {
+      console.error('API Error Response:', error.response.data);
+      console.error('API Error Status:', error.response.status);
+    }
+    
     return res.status(500).json({ 
       error: 'Something went wrong',
-      message: error.message
+      message: error.message,
+      details: error.response?.data || null
     });
   }
 });
