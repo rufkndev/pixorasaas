@@ -77,10 +77,10 @@ export class LogoService {
   async generateLogo(businessName: string, keywords: string, industry: string): Promise<string> {
     const prompt = this.createLogoPrompt(businessName, keywords, industry);
     
-    const initialResponse = await axios.post(`${this.baseUrl}/networks/dalle-3`, {
+    const initialResponse = await axios.post(`${this.baseUrl}/networks/gpt-image-1`, {
       prompt: prompt,
       size: "1024x1024",
-      quality: "hd"
+      quality: "medium"
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -110,18 +110,18 @@ export class LogoService {
       .filter(k => k.length > 0)
       .join(', ');
     
-    return `Create a minimalist, modern logo design for a business named "${name}" in the ${industry} sector.
-The logo must:
-- Be clean, abstract, and geometric
-- Fill the entire square frame (no excessive whitespace)
-- Use clever negative space, no gradients or shadows
-- Be iconic and recognizable at small sizes
-- Have a professional color palette that reflects ${formattedKeywords}
-- Appear centered on a pure white square canvas
-- Be a finalized, polished logo — not in progress
-Vector-style digital rendering only.  
-**Do not include** hands, people, text, handwriting, drawing tools, or any illustrative elements.
-`;
+    return `Create a professional, minimalist logo for a business named "${name}" that specializes in ${industry}.  
+The logo should be:
+- Clean, modern, and visually striking
+- Suitable for both digital and print media
+- Memorable and instantly recognizable
+- Using a sophisticated color palette that reflects the business essence
+- Without any text or typography
+- With clever use of negative space and geometric shapes
+- Balanced composition with strong visual hierarchy
+- Simple enough to be recognizable at small sizes
+
+The logo should capture the essence of ${formattedKeywords} while maintaining a timeless, professional aesthetic. Create the logo against a clean white background in a square format.;`;
   }
 
   // Извлечение URL логотипа из ответа
