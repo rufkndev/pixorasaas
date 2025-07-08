@@ -77,10 +77,10 @@ export class LogoService {
   async generateLogo(businessName: string, keywords: string, industry: string): Promise<string> {
     const prompt = this.createLogoPrompt(businessName, keywords, industry);
     
-    const initialResponse = await axios.post(`${this.baseUrl}/networks/gpt-image-1`, {
+    const initialResponse = await axios.post(`${this.baseUrl}/networks/dalle-3`, {
       prompt: prompt,
       size: "1024x1024",
-      quality: "medium"
+      quality: "hd"
     }, {
       headers: {
         'Content-Type': 'application/json',

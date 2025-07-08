@@ -141,7 +141,7 @@ function LogoGeneratorContent() {
                           <p className="text-lg font-medium text-gray-900">{keywords}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Индустрия</p>
+                          <p className="text-sm font-medium text-gray-500">Ниша бизнеса</p>
                           <p className="text-lg font-medium text-gray-900">{industry}</p>
                         </div>
                       </div>

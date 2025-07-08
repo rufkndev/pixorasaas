@@ -289,8 +289,9 @@ router.post('/generate-logo-variants', async (req: any, res: any) => {
 
     console.log('Starting logo variants generation for:', { brandName, logoUrl });
 
-    // Генерируем вариации логотипа
-    const logoVariants = await brandbookService.generateLogoVariants(logoUrl, brandName);
+    // Генерируем базовые вариации логотипа (для демо используем простые варианты)
+    const { logoVariantService } = await import('../services/brandbookServices/logoVariantService');
+    const logoVariants = await logoVariantService.generateBasicLogoVariants(logoUrl, brandName);
     
     console.log('Generated logo variants:', logoVariants);
 

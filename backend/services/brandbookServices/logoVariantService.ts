@@ -15,6 +15,25 @@ export interface LogoVariant {
   font?: string;
 }
 
+export interface BrandColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  neutral: string;
+  background: string;
+  text: string;
+}
+
+export interface BrandFont {
+  name: string;
+  type: string;
+  url: string;
+  category: string;
+  family: string;
+  weights: string[];
+  googleFontUrl?: string;
+}
+
 // Сервис для создания вариаций логотипов
 export class LogoVariantService {
   // Функция для скачивания изображения по URL
@@ -43,126 +62,78 @@ export class LogoVariantService {
       .toBuffer();
   }
 
-  // Извлечение доминантных цветов из логотипа
-  private async extractDominantColors(imageBuffer: Buffer): Promise<{primary: string, secondary: string}> {
-    try {
-      // Получаем статистику по цветам
-      const { dominant } = await sharp(imageBuffer).stats();
-      
-      // Создаем цвета на основе доминантного цвета
-      const r = Math.round(dominant.r);
-      const g = Math.round(dominant.g);
-      const b = Math.round(dominant.b);
-      
-      const primary = `rgb(${r}, ${g}, ${b})`;
-      
-      // Создаем более темный вторичный цвет
-      const darkerR = Math.max(0, r - 40);
-      const darkerG = Math.max(0, g - 40);
-      const darkerB = Math.max(0, b - 40);
-      const secondary = `rgb(${darkerR}, ${darkerG}, ${darkerB})`;
-      
-      return { primary, secondary };
-    } catch (error) {
-      console.warn('Could not extract colors from logo, using defaults');
-      // Возвращаем профессиональные цвета по умолчанию
-      return {
-        primary: 'rgb(37, 99, 235)', // blue-600
-        secondary: 'rgb(29, 78, 216)' // blue-700
-      };
-    }
-  }
+  // Создание логотипа с полным названием в квадратном дизайне
+  private async createAbbreviationLogo(
+    brandName: string, 
+    brandColors: BrandColors, 
+    brandFonts: BrandFont[]
+  ): Promise<Buffer> {
+    // Получаем основной шрифт из фирменных шрифтов
+    const mainFont = brandFonts.find(font => font.type === 'main') || brandFonts[0];
+    const fontFamily = mainFont ? `'${mainFont.name}', -apple-system, BlinkMacSystemFont, sans-serif` : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
 
-  // Анализ стиля логотипа для выбора подходящего шрифта
-  private async analyzeLogoStyle(imageBuffer: Buffer): Promise<string> {
-    try {
-      // Получаем метаданные изображения для анализа
-      const metadata = await sharp(imageBuffer).metadata();
-      const { dominant } = await sharp(imageBuffer).stats();
-      
-      // Анализируем яркость для определения стиля
-      const brightness = (dominant.r + dominant.g + dominant.b) / 3;
-      const saturation = Math.max(dominant.r, dominant.g, dominant.b) - Math.min(dominant.r, dominant.g, dominant.b);
-      
-      // Выбираем шрифт на основе анализа
-      if (brightness > 200 && saturation < 30) {
-        // Светлый и ненасыщенный - минималистичный стиль
-        return "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-      } else if (saturation > 100) {
-        // Яркий и насыщенный - современный стиль  
-        return "'Poppins', 'Inter', system-ui, sans-serif";
-      } else if (brightness < 100) {
-        // Темный - классический стиль
-        return "'Roboto', 'Helvetica Neue', Arial, sans-serif";
-      } else {
-        // Сбалансированный - универсальный стиль
-        return "'Source Sans Pro', 'Segoe UI', system-ui, sans-serif";
-      }
-    } catch (error) {
-      // По умолчанию используем универсальный современный шрифт
-      return "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
-    }
-  }
-
-  // Создание логотипа-аббревиатуры
-  private async createAbbreviationLogo(brandName: string, originalBuffer: Buffer): Promise<Buffer> {
-    // Извлекаем инициалы из названия бренда
+    // Разделяем название на слова
     const words = brandName.split(' ').filter(word => word.length > 0);
-    const abbreviation = words.length > 1 
-      ? words.map(word => word.charAt(0).toUpperCase()).join('')
-      : brandName.substring(0, 2).toUpperCase();
-
-    // Извлекаем цвета из оригинального логотипа
-    const colors = await this.extractDominantColors(originalBuffer);
     
-    // Анализируем стиль логотипа для выбора шрифта
-    const fontFamily = await this.analyzeLogoStyle(originalBuffer);
-
-    // Создаем SVG для логотипа-аббревиатуры
+    // Создаем SVG для логотипа с полным названием в квадрате
     const size = 400;
-    const fontSize = Math.min(160, size / abbreviation.length * 1.1);
+    const borderRadius = 40; // Закругление углов
+    const padding = 30;
     
-    // Определяем стиль контейнера на основе цветов
-    const { dominant } = await sharp(originalBuffer).stats();
-    const avgColor = (dominant.r + dominant.g + dominant.b) / 3;
-    const isLightPalette = avgColor > 150;
+    // Рассчитываем размер шрифта в зависимости от количества слов и длины
+    const maxWordLength = Math.max(...words.map(word => word.length));
+    const fontSize = Math.min(60, Math.max(24, (size - padding * 2) / Math.max(maxWordLength * 0.7, words.length * 1.2)));
+    
+    // Рассчитываем позиции для центрирования многострочного текста
+    const lineHeight = fontSize * 1.2;
+    const totalTextHeight = words.length * lineHeight;
+    const startY = (size - totalTextHeight) / 2 + fontSize * 0.8;
+    
+    // Создаем текстовые элементы для каждого слова
+    const textElements = words.map((word, index) => {
+      const yPosition = startY + index * lineHeight;
+      return `
+        <text x="${size/2}" y="${yPosition}" 
+              font-family="${fontFamily}" 
+              font-size="${fontSize}" 
+              font-weight="900" 
+              text-anchor="middle" 
+              fill="${brandColors.accent}"
+              filter="url(#innerShadow)"
+              style="letter-spacing: 0.02em; text-transform: uppercase;">
+          ${word}
+        </text>
+      `;
+    }).join('');
     
     const svgLogo = `
       <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:${colors.primary};stop-opacity:1" />
-            <stop offset="100%" style="stop-color:${colors.secondary};stop-opacity:1" />
-          </linearGradient>
           <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:rgba(255,255,255,${isLightPalette ? '0.95' : '0.1'});stop-opacity:1" />
-            <stop offset="100%" style="stop-color:rgba(255,255,255,${isLightPalette ? '0.8' : '0.05'});stop-opacity:1" />
+            <stop offset="0%" style="stop-color:${brandColors.primary};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${brandColors.secondary};stop-opacity:1" />
           </linearGradient>
           <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="rgba(0,0,0,0.15)"/>
+            <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="rgba(0,0,0,0.2)"/>
           </filter>
           <filter id="innerShadow" x="-50%" y="-50%" width="200%" height="200%">
             <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.1)"/>
           </filter>
         </defs>
         
-        <!-- Внешний контейнер с тенью -->
-        <circle cx="${size/2}" cy="${size/2}" r="${size/2-15}" fill="url(#grad)" filter="url(#shadow)" />
+        <!-- Фон - закругленный квадрат с градиентом из фирменных цветов -->
+        <rect x="15" y="15" width="${size-30}" height="${size-30}" 
+              rx="${borderRadius}" ry="${borderRadius}" 
+              fill="url(#bgGrad)" 
+              filter="url(#shadow)" />
         
         <!-- Внутренний слой для глубины -->
-        <circle cx="${size/2}" cy="${size/2}" r="${size/2-25}" fill="url(#bgGrad)" opacity="0.3" />
+        <rect x="25" y="25" width="${size-50}" height="${size-50}" 
+              rx="${borderRadius-10}" ry="${borderRadius-10}" 
+              fill="rgba(255,255,255,0.1)" />
         
-        <!-- Текст аббревиатуры -->
-        <text x="${size/2}" y="${size/2 + fontSize/3}" 
-              font-family="${fontFamily}" 
-              font-size="${fontSize}" 
-              font-weight="900" 
-              text-anchor="middle" 
-              fill="white"
-              filter="url(#innerShadow)"
-              style="letter-spacing: ${abbreviation.length > 2 ? '0.02em' : abbreviation.length > 1 ? '0.08em' : '0'}">
-          ${abbreviation}
-        </text>
+        <!-- Полное название бренда - каждое слово на новой строке -->
+        ${textElements}
       </svg>
     `;
 
@@ -173,60 +144,54 @@ export class LogoVariantService {
   }
 
   // Создание логотипа с названием снизу
-  private async createLogoWithTextBelow(imageBuffer: Buffer, brandName: string): Promise<Buffer> {
+  private async createLogoWithTextBelow(
+    imageBuffer: Buffer, 
+    brandName: string, 
+    brandColors: BrandColors, 
+    brandFonts: BrandFont[]
+  ): Promise<Buffer> {
     // Получаем размеры оригинального логотипа  
     const metadata = await sharp(imageBuffer).metadata();
     const logoWidth = metadata.width || 300;
     const logoHeight = metadata.height || 300;
     
-    // Извлекаем цвета из оригинального логотипа
-    const colors = await this.extractDominantColors(imageBuffer);
+    // Получаем основной шрифт из фирменных шрифтов
+    const mainFont = brandFonts.find(font => font.type === 'main') || brandFonts[0];
+    const fontFamily = mainFont ? `'${mainFont.name}', -apple-system, BlinkMacSystemFont, sans-serif` : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
     
-    // Рассчитываем размеры для цельного логотипа
-    const totalWidth = 600; // Фиксированная ширина для пропорциональности
-    
-    // Логотип будет занимать верхнюю часть, но компактнее
-    const logoAreaHeight = Math.round(totalWidth * 0.4); // 40% от ширины для логотипа
-    const textAreaHeight = Math.round(totalWidth * 0.2); // 20% для текста
-    const totalHeight = logoAreaHeight + textAreaHeight + 20; // Небольшой отступ
+    // Рассчитываем размеры для цельного логотипа без фона
+    const totalWidth = 600;
+    const logoAreaHeight = Math.round(totalWidth * 0.5); // Больше места для логотипа
+    const textAreaHeight = Math.round(totalWidth * 0.2); // Место для текста
+    const totalHeight = logoAreaHeight + textAreaHeight + 40; // Отступ между элементами
     
     // Размер шрифта пропорционален общему размеру
     const fontSize = Math.min(72, Math.max(48, totalWidth / brandName.length * 0.8));
     
-    // Создаем фон с легким градиентом для единого стиля
-    const backgroundSvg = `
-      <svg width="${totalWidth}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:rgba(255,255,255,1);stop-opacity:1" />
-            <stop offset="100%" style="stop-color:rgba(248,250,252,1);stop-opacity:1" />
-          </linearGradient>
-          <filter id="containerShadow" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="rgba(0,0,0,0.1)"/>
-          </filter>
-        </defs>
-        <rect width="${totalWidth}" height="${totalHeight}" rx="20" ry="20" fill="url(#bgGrad)" filter="url(#containerShadow)" />
-      </svg>
-    `;
+    // Создаем прозрачный фон
+    const transparentBackground = await sharp({
+      create: {
+        width: totalWidth,
+        height: totalHeight,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      }
+    }).png().toBuffer();
 
-    // Создаем название с крупными буквами
+    // Создаем название с черным цветом
     const textSvg = `
       <svg width="${totalWidth}" height="${textAreaHeight}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color:${colors.primary};stop-opacity:1" />
-            <stop offset="100%" style="stop-color:${colors.secondary};stop-opacity:1" />
-          </linearGradient>
           <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="rgba(0,0,0,0.2)"/>
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.1)"/>
           </filter>
         </defs>
         <text x="${totalWidth/2}" y="${textAreaHeight/2 + fontSize/3}" 
-              font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              font-family="${fontFamily}" 
               font-size="${fontSize}" 
               font-weight="800" 
               text-anchor="middle" 
-              fill="url(#textGrad)"
+              fill="#000000"
               filter="url(#textShadow)"
               style="letter-spacing: 0.05em; text-transform: uppercase;">
           ${brandName}
@@ -234,18 +199,13 @@ export class LogoVariantService {
       </svg>
     `;
 
-    // Создаем фон
-    const backgroundBuffer = await sharp(Buffer.from(backgroundSvg))
-      .png()
-      .toBuffer();
-
     // Конвертируем SVG текста в буфер
     const textBuffer = await sharp(Buffer.from(textSvg))
       .png()
       .toBuffer();
 
-    // Уменьшаем логотип для компактности - он должен быть частью общего дизайна
-    const maxLogoSize = Math.min(logoAreaHeight * 0.7, totalWidth * 0.3);
+    // Уменьшаем логотип для компактности
+    const maxLogoSize = Math.min(logoAreaHeight * 0.8, totalWidth * 0.4);
     const compactLogo = await sharp(imageBuffer)
       .resize(Math.round(maxLogoSize), Math.round(maxLogoSize), { 
         fit: 'inside', 
@@ -259,20 +219,42 @@ export class LogoVariantService {
     const compactLogoWidth = compactMetadata.width || maxLogoSize;
     const compactLogoHeight = compactMetadata.height || maxLogoSize;
 
-    // Собираем итоговое изображение
-    return await sharp(backgroundBuffer)
+    // Собираем итоговое изображение на прозрачном фоне
+    return await sharp(transparentBackground)
       .composite([
         {
           input: compactLogo,
-          top: Math.round((logoAreaHeight - compactLogoHeight) / 2) + 10,
+          top: Math.round((logoAreaHeight - compactLogoHeight) / 2),
           left: Math.round((totalWidth - compactLogoWidth) / 2)
         },
         {
           input: textBuffer,
-          top: logoAreaHeight + 10,
+          top: logoAreaHeight + 20,
           left: 0
         }
       ])
+      .png()
+      .toBuffer();
+  }
+
+  // Функция для обрезки логотипа со всех сторон
+  private async trimLogo(imageBuffer: Buffer, trimPercentage: number = 20): Promise<Buffer> {
+    const metadata = await sharp(imageBuffer).metadata();
+    const width = metadata.width || 300;
+    const height = metadata.height || 300;
+    
+    // Рассчитываем размеры обрезки
+    const trimWidth = Math.round(width * (trimPercentage / 100));
+    const trimHeight = Math.round(height * (trimPercentage / 100));
+    
+    // Обрезаем изображение
+    return await sharp(imageBuffer)
+      .extract({
+        left: trimWidth,
+        top: trimHeight,
+        width: width - (trimWidth * 2),
+        height: height - (trimHeight * 2)
+      })
       .png()
       .toBuffer();
   }
@@ -362,10 +344,119 @@ export class LogoVariantService {
   }
 
   // Генерация вариаций логотипа
-  async generateLogoVariants(originalLogoUrl: string, brandName: string): Promise<LogoVariant[]> {
-    // Для полного функционала будет реализован позже
-    // Пока используем базовые варианты
-    return await this.generateBasicLogoVariants(originalLogoUrl, brandName);
+  async generateLogoVariants(
+    originalLogoUrl: string, 
+    brandName: string, 
+    brandColors: BrandColors, 
+    brandFonts: BrandFont[]
+  ): Promise<LogoVariant[]> {
+    try {
+      console.log(`Generating full logo variants for: ${brandName}`);
+      
+      // Скачиваем оригинальное изображение
+      const originalBuffer = await this.downloadImage(originalLogoUrl);
+      
+      // Создаем уникальные имена файлов
+      const timestamp = Date.now();
+      const sanitizedName = brandName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      // 1. Обрезаем оригинальный логотип
+      const trimmedOriginalBuffer = await this.trimLogo(originalBuffer);
+      const trimmedOriginalUrl = await this.saveImageBuffer(
+        trimmedOriginalBuffer, 
+        `${sanitizedName}_trimmed_${timestamp}.png`
+      );
+      
+      // 2. Создаем монохромную версию и обрезаем её
+      const monochromeBuffer = await this.createMonochromeVersion(originalBuffer);
+      const trimmedMonochromeBuffer = await this.trimLogo(monochromeBuffer);
+      const monochromeUrl = await this.saveImageBuffer(
+        trimmedMonochromeBuffer, 
+        `${sanitizedName}_monochrome_${timestamp}.png`
+      );
+      
+      // 3. Создаем инвертированную версию и обрезаем её
+      const invertedBuffer = await this.createInvertedVersion(originalBuffer);
+      const trimmedInvertedBuffer = await this.trimLogo(invertedBuffer);
+      const invertedUrl = await this.saveImageBuffer(
+        trimmedInvertedBuffer, 
+        `${sanitizedName}_inverted_${timestamp}.png`
+      );
+      
+      // 4. Создаем логотип с полным названием в квадратном дизайне
+      const abbreviationBuffer = await this.createAbbreviationLogo(brandName, brandColors, brandFonts);
+      const abbreviationUrl = await this.saveImageBuffer(
+        abbreviationBuffer, 
+        `${sanitizedName}_abbreviation_${timestamp}.png`
+      );
+      
+      // 5. Создаем логотип с текстом снизу без фона
+      const logoWithTextBuffer = await this.createLogoWithTextBelow(trimmedOriginalBuffer, brandName, brandColors, brandFonts);
+      const logoWithTextUrl = await this.saveImageBuffer(
+        logoWithTextBuffer, 
+        `${sanitizedName}_with_text_${timestamp}.png`
+      );
+      
+      const logoVariants: LogoVariant[] = [
+        {
+          name: 'Оригинальный логотип',
+          url: originalLogoUrl,
+          description: 'Основная версия логотипа в полном цвете',
+          type: 'original',
+          usage: 'Используется на цветных фонах и в основных материалах бренда'
+        },
+        {
+          name: 'Обрезанный логотип',
+          url: trimmedOriginalUrl,
+          description: 'Компактная версия логотипа с уменьшенными полями',
+          type: 'trimmed',
+          usage: 'Используется в случаях, когда требуется экономия пространства'
+        },
+        {
+          name: 'Монохромный логотип',
+          url: monochromeUrl,
+          description: 'Черно-белая версия логотипа для универсального использования',
+          type: 'monochrome',
+          usage: 'Идеально подходит для печати, факсов, черно-белых документов',
+          filter: 'grayscale'
+        },
+        {
+          name: 'Инвертированный логотип',
+          url: invertedUrl,
+          description: 'Инвертированная версия для использования на темных фонах',
+          type: 'inverted',
+          usage: 'Используется на темных фонах, в ночных режимах интерфейсов',
+          filter: 'invert'
+        },
+        {
+          name: 'Логотип-аббревиатура',
+          url: abbreviationUrl,
+          description: 'Стильный квадратный логотип с полным названием бренда',
+          type: 'abbreviation',
+          usage: 'Используется в качестве фавикона, в малых размерах, на соцсетях',
+          text: brandName,
+          font: brandFonts.find(font => font.type === 'main')?.name || 'Inter'
+        },
+        {
+          name: 'Логотип с названием',
+          url: logoWithTextUrl,
+          description: 'Прозрачная версия логотипа с названием бренда снизу',
+          type: 'with_text',
+          usage: 'Используется для презентаций, заголовков, на любых фонах',
+          text: brandName,
+          font: brandFonts.find(font => font.type === 'main')?.name || 'Inter'
+        }
+      ];
+      
+      console.log(`Generated ${logoVariants.length} logo variants successfully`);
+      return logoVariants;
+      
+    } catch (error) {
+      console.error('Error generating logo variants:', error);
+      
+      // Возвращаем базовые варианты если полная генерация не удалась
+      return await this.generateBasicLogoVariants(originalLogoUrl, brandName);
+    }
   }
 }
 

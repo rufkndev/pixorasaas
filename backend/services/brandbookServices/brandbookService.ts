@@ -2,7 +2,7 @@ import { iconService } from './iconService';
 import { colorService, ColorPalette } from './colorService';
 import { fontService, Font } from './fontService';
 import { sloganService } from './sloganService';
-import { logoVariantService, LogoVariant } from './logoVariantService';
+import { logoVariantService, LogoVariant, BrandColors, BrandFont } from './logoVariantService';
 import { demoBrandbookService } from './demoBrandbookService';
 import { guidelinesService, BrandGuidelines } from './guidelinesService';
 import { applicationsService, BrandApplications } from './applicationsService';
@@ -69,14 +69,24 @@ export class BrandbookService {
     // Используем переданный слоган или генерируем новый
     const slogan = existingSlogan || await sloganService.generateSlogan(name, keywords, 'профессиональный и современный');
     
-    // Генерируем все вариации логотипа
-    const logoVariants = await logoVariantService.generateLogoVariants(logoUrl, name);
-    
     // Генерируем цветовую палитру на основе ключевых слов
     const colors = await colorService.generateColorPalette(keywords);
     
     // Генерируем шрифты на основе ключевых слов
     const fonts = await fontService.generateFonts(keywords, logoUrl);
+    
+    // Подготавливаем фирменные цвета для вариаций логотипа
+    const brandColors = {
+      primary: colors[0]?.hex || '#2563eb',
+      secondary: colors[1]?.hex || '#1d4ed8',
+      accent: colors[2]?.hex || '#ffffff',
+      neutral: colors[3]?.hex || '#f8fafc',
+      background: '#ffffff',
+      text: colors[0]?.hex || '#2563eb'
+    };
+    
+    // Генерируем все вариации логотипа с фирменными цветами и шрифтами
+    const logoVariants = await logoVariantService.generateLogoVariants(logoUrl, name, brandColors, fonts);
     
     // Генерируем иконки и элементы
     const icons = await this.generateIcons(brandStyle, industry, keywords);
@@ -136,7 +146,5 @@ export const brandbookService = {
   generateDemoBrandbook: (name: string, keywords: string, logoUrl: string, existingSlogan?: string) => 
     getBrandbookService().generateDemoBrandbook(name, keywords, logoUrl, existingSlogan),
   generateBrandbook: (name: string, keywords: string, logoUrl: string, brandStyle: string, industry: string, existingSlogan?: string) => 
-    getBrandbookService().generateBrandbook(name, keywords, logoUrl, brandStyle, industry, existingSlogan),
-  generateLogoVariants: (originalLogoUrl: string, brandName: string) => 
-    logoVariantService.generateLogoVariants(originalLogoUrl, brandName)
+    getBrandbookService().generateBrandbook(name, keywords, logoUrl, brandStyle, industry, existingSlogan)
 };
