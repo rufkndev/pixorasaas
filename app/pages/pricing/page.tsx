@@ -48,10 +48,16 @@ export default function PricingPage() {
                   Профессиональный логотип для вашего бизнеса
                 </p>
                 <p className="mt-4 text-5xl font-extrabold text-gray-900 text-center">
-                  999 ₽
+                  499 ₽
                 </p>
                 {/* Список включенных функций */}
                 <ul className="mt-8 space-y-4">
+                  <li className="flex items-start">
+                    <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="ml-3 text-gray-700">Генерация названия бизнеса</span>
+                  </li>
                   <li className="flex items-start">
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -68,13 +74,7 @@ export default function PricingPage() {
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Неограниченные правки</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="ml-3 text-gray-700">Полные права на использование</span>
+                    <span className="ml-3 text-gray-700">Скачивание без вотермарки</span>
                   </li>
                 </ul>
               </div>
@@ -101,7 +101,7 @@ export default function PricingPage() {
                   Комплексное решение для вашего бренда
                 </p>
                 <p className="mt-4 text-5xl font-extrabold text-gray-900 text-center">
-                  1999 ₽
+                  999 ₽
                 </p>
                 {/* Список включенных функций */}
                 <ul className="mt-8 space-y-4">
@@ -139,7 +139,7 @@ export default function PricingPage() {
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Приоритетная поддержка</span>
+                    <span className="ml-3 text-gray-700">Скачивание в ZIP</span>
                   </li>
                 </ul>
               </div>
