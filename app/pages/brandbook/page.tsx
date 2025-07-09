@@ -149,10 +149,20 @@ function BrandbookContent() {
 
   // Функция скачивания файлов
   const downloadFile = (type: string) => {
-    // Здесь будет логика скачивания файлов
-    console.log(`Downloading ${type}...`);
-    // Пока делаем имитацию
-    alert(`Скачивание ${type} начнется в ближайшее время...`);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    
+    // Разделяем тип и параметры запроса
+    const [endpoint, queryParams] = type.split('?');
+    const baseUrl = `${apiUrl}/api/download-${endpoint}/${orderId}`;
+    const fullUrl = queryParams ? `${baseUrl}?userId=${userId}&${queryParams}` : `${baseUrl}?userId=${userId}`;
+    
+    // Создаем временную ссылку для скачивания
+    const link = document.createElement('a');
+    link.href = fullUrl;
+    link.download = `${brandbook.businessName}_${endpoint}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (!mounted || isAuthLoading || isLoading) {
@@ -287,7 +297,23 @@ function BrandbookContent() {
               {activeSection === 'logo' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Варианты логотипа</h2>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900">Варианты логотипа</h2>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => downloadFile(`logo-variants`)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Скачать PNG
+                        </button>
+                        <button
+                          onClick={() => downloadFile(`logo-variants?format=both`)}
+                          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                          Скачать всё
+                        </button>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {brandbook.logo.variants.map((variant: any, index: number) => (
                         <div key={index} className="text-center">
@@ -305,12 +331,26 @@ function BrandbookContent() {
                           </div>
                           <h3 className="font-semibold text-gray-900 mb-1">{variant.name}</h3>
                           <p className="text-sm text-gray-600">{variant.description}</p>
-                          <button
-                            onClick={() => downloadFile(`logo-${variant.type}`)}
-                            className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Скачать SVG
-                          </button>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={() => downloadFile(`logo-variants`)}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Скачать PNG
+                            </button>
+                            <button
+                              onClick={() => downloadFile(`logo-variants?format=svg`)}
+                              className="text-sm text-green-600 hover:text-green-800"
+                            >
+                              Скачать SVG
+                            </button>
+                            <button
+                              onClick={() => downloadFile(`logo-variants?format=both`)}
+                              className="text-sm text-purple-600 hover:text-purple-800"
+                            >
+                              Скачать всё
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -425,7 +465,17 @@ function BrandbookContent() {
               {activeSection === 'icons' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Фирменные иконки и элементы</h2>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900">Фирменные иконки и элементы</h2>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => downloadFile(`icons`)}
+                          className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                        >
+                          Скачать иконки (SVG)
+                        </button>
+                      </div>
+                    </div>
                     
                     {brandbook.icons && Array.isArray(brandbook.icons) && brandbook.icons.length > 0 ? (
                       <div className="space-y-8">
@@ -481,7 +531,7 @@ function BrandbookContent() {
                         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                           <p className="text-sm text-blue-800">
                             💡 Все иконки и элементы доступны в формате SVG для максимального качества и масштабируемости. 
-                            Скачайте полный набор в разделе "Скачать".
+                            Нажмите кнопку "Скачать иконки (SVG)" для получения полного набора.
                           </p>
                         </div>
                       </div>
@@ -874,7 +924,17 @@ function BrandbookContent() {
               {activeSection === 'applications' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Примеры применения</h2>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900">Примеры применения</h2>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => downloadFile(`applications`)}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          Скачать макеты (SVG)
+                        </button>
+                      </div>
+                    </div>
                     
                     {brandbook.applications ? (
                       <div className="space-y-10">

@@ -19,6 +19,7 @@ import generateNameRoutes from './routes/generateName';
 import generateLogoRoutes from './routes/generateLogo';
 import generateBrandbookRoutes from './routes/generateBrandbook';
 import sendContactRoutes from './routes/sendContact';
+import downloadBrandbookRoutes from './routes/downloadBrandbook';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,6 +58,7 @@ app.use('/api', generateNameRoutes);
 app.use('/api', generateLogoRoutes);
 app.use('/api', generateBrandbookRoutes);
 app.use('/api', sendContactRoutes);
+app.use('/api', downloadBrandbookRoutes);
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
