@@ -214,7 +214,6 @@ function BrandbookContent() {
     { id: 'icons', name: 'Иконки', icon: '⭐' },
     { id: 'guidelines', name: 'Рекомендации', icon: '📖' },
     { id: 'applications', name: 'Применение', icon: '💼' },
-    { id: 'downloads', name: 'Скачать', icon: '⬇️' }
   ];
 
   return (
@@ -314,42 +313,25 @@ function BrandbookContent() {
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {brandbook.logo.variants.map((variant: any, index: number) => (
-                        <div key={index} className="text-center">
+                        <div key={index} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
                           <div className={`
-                            ${variant.type === 'inverted' ? 'bg-gray-900' : 'bg-gray-50'} 
-                            border border-gray-200 rounded-lg p-8 mb-4 min-h-40 flex items-center justify-center
+                            p-8 flex items-center justify-center min-h-48 
+                            ${variant.type === 'inverted' ? 'bg-gray-900' : 'bg-gray-50'}
                           `}>
                             <Image
                               src={variant.url}
                               alt={variant.name}
-                              width={120}
-                              height={120}
+                              width={150}
+                              height={150}
                               className="max-h-32 max-w-full object-contain"
                             />
                           </div>
-                          <h3 className="font-semibold text-gray-900 mb-1">{variant.name}</h3>
-                          <p className="text-sm text-gray-600">{variant.description}</p>
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={() => downloadFile(`logo-variants`)}
-                              className="text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Скачать PNG
-                            </button>
-                            <button
-                              onClick={() => downloadFile(`logo-variants?format=svg`)}
-                              className="text-sm text-green-600 hover:text-green-800"
-                            >
-                              Скачать SVG
-                            </button>
-                            <button
-                              onClick={() => downloadFile(`logo-variants?format=both`)}
-                              className="text-sm text-purple-600 hover:text-purple-800"
-                            >
-                              Скачать всё
-                            </button>
+                          <div className="p-6">
+                            <h4 className="text-lg font-semibold text-gray-800 mb-2">{variant.name}</h4>
+                            <p className="text-sm text-gray-600 mb-4">{variant.description}</p>
+                            <p className="text-xs text-gray-500 italic">Применение: {variant.usage}</p>
                           </div>
                         </div>
                       ))}
@@ -383,16 +365,6 @@ function BrandbookContent() {
                               </div>
                             </div>
                           ))}
-                        </div>
-                        
-                        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-3">Как использовать цветовую палитру</h3>
-                          <div className="space-y-2 text-sm text-gray-600">
-                            <p>• Используйте основные цвета для логотипа и ключевых элементов</p>
-                            <p>• Применяйте дополнительные цвета для акцентов и выделения</p>
-                            <p>• Светлые оттенки подходят для фонов и карточек</p>
-                            <p>• Темные оттенки используйте для текста и границ</p>
-                          </div>
                         </div>
                       </div>
                     ) : (
@@ -526,13 +498,6 @@ function BrandbookContent() {
                               </div>
                             ))}
                           </div>
-                        </div>
-                        
-                        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            💡 Все иконки и элементы доступны в формате SVG для максимального качества и масштабируемости. 
-                            Нажмите кнопку "Скачать иконки (SVG)" для получения полного набора.
-                          </p>
                         </div>
                       </div>
                     ) : (
@@ -1261,76 +1226,6 @@ function BrandbookContent() {
                 </div>
               )}
 
-              {/* Скачивание */}
-              {activeSection === 'downloads' && (
-                <div className="space-y-8">
-                  <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Скачать файлы</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Логотипы</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Все варианты логотипа в форматах PNG, SVG, PDF, AI
-                        </p>
-                        <button
-                          onClick={() => downloadFile('logo-package')}
-                          className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
-                        >
-                          Скачать пакет логотипов
-                        </button>
-                      </div>
-                      
-                      <div className="border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Цветовая палитра</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Файл палитры для Adobe Creative Suite (.ASE)
-                        </p>
-                        <button
-                          onClick={() => downloadFile('color-palette')}
-                          className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
-                        >
-                          Скачать палитру
-                        </button>
-                      </div>
-                      
-                      <div className="border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Шрифты</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Все фирменные шрифты в форматах TTF, OTF, WOFF
-                        </p>
-                        <button
-                          onClick={() => downloadFile('fonts')}
-                          className="w-full bg-gray-900 text-white py-2 px-4 rounded-md hover:bg-gray-800 transition-colors"
-                        >
-                          Скачать шрифты
-                        </button>
-                      </div>
-                      
-                      <div className="border border-gray-200 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Полный брендбук</h3>
-                        <p className="text-sm text-gray-600 mb-4">
-                          Полное руководство по стилю в формате PDF
-                        </p>
-                        <button
-                          onClick={() => downloadFile('full-brandbook')}
-                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                          Скачать брендбук PDF
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-8 p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-green-900 mb-2">Техническая поддержка</h4>
-                      <p className="text-sm text-green-800">
-                        Если у вас возникли вопросы по использованию брендбука или нужна помощь с файлами, 
-                        свяжитесь с нами по email: support@pixora.ru
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

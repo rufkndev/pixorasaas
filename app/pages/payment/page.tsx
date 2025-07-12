@@ -41,16 +41,37 @@ function PaymentContent() {
     }
     
     // Перенаправление на главную, если нет необходимых данных
-    if (mounted && (!product || !name || !keywords || !logoUrl || !industry || !brandStyle)) {
+    if (mounted && !product) {
       router.push('/');
     }
-  }, [mounted, product, name, keywords, logoUrl, user]);
+    
+    // Проверка специфичных параметров для брендбука
+    if (mounted && product === 'brandbook' && (!name || !keywords || !logoUrl || !industry || !brandStyle)) {
+      router.push('/');
+    }
+    
+    // Проверка специфичных параметров для логотипа
+    if (mounted && product === 'logo' && (!name || !keywords)) {
+      router.push('/');
+    }
+  }, [mounted, product, name, keywords, logoUrl, industry, brandStyle, user]);
 
   // Информация о продуктах
   const productInfo = {
+    logo: {
+      title: 'Логотип без вотермарки',
+      price: 499,
+      description: 'Высококачественный логотип в полном разрешении',
+      features: [
+        'Логотип без вотермарки',
+        'Высокое разрешение (PNG, SVG)',
+        'Полные права на использование',
+        'Возможность использования в коммерческих целях'
+      ]
+    },
     brandbook: {
       title: 'Полный брендбук',
-      price: 1999,
+      price: 999,
       description: 'Комплексное руководство по фирменному стилю',
       features: [
         'Логотип в 5 вариациях',
@@ -85,34 +106,66 @@ function PaymentContent() {
       // Генерируем уникальный ID заказа
       const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // После успешной оплаты создаем полный брендбук
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/create-full-brandbook`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId,
-          name,
-          keywords,
-          logoUrl,
-          slogan,
-          userId: user.id,
-          industry,
-          brandStyle,
-        }),
-      });
-      
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(responseData.error || 'Ошибка при создании брендбука');
+      if (product === 'logo') {
+        // Обработка оплаты логотипа
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/purchase-logo`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId,
+            name,
+            keywords,
+            logoUrl,
+            userId: user.id,
+            paymentMethod,
+            email,
+            phone,
+          }),
+        });
+        
+        const responseData = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(responseData.error || 'Ошибка при обработке оплаты логотипа');
+        }
+        
+        // Перенаправляем в дашборд
+        router.push('/pages/dashboard');
+        
+      } else if (product === 'brandbook') {
+        // Обработка оплаты брендбука (существующая логика)
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/create-full-brandbook`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId,
+            name,
+            keywords,
+            logoUrl,
+            slogan,
+            userId: user.id,
+            industry,
+            brandStyle,
+          }),
+        });
+        
+        const responseData = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(responseData.error || 'Ошибка при создании брендбука');
+        }
+        
+        // Перенаправляем на страницу с готовым брендбуком
+        router.push(`/pages/brandbook?orderId=${orderId}&userId=${user.id}&product=${product}`);
       }
-      
-      // Перенаправляем на страницу с готовым брендбуком
-      router.push(`/pages/brandbook?orderId=${orderId}&userId=${user.id}&product=${product}`);
       
     } catch (err: any) {
       console.error('Payment error:', err);
@@ -180,18 +233,21 @@ function PaymentContent() {
                     {/* Информация о бренде */}
                     <div className="border-b border-gray-200 pb-4 mb-4">
                       <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <Image
-                            src={logoUrl}
-                            alt={`Логотип ${name}`}
-                            width={64}
-                            height={64}
-                            className="rounded-lg object-contain"
-                          />
-                        </div>
+                        {logoUrl && (
+                          <div className="flex-shrink-0">
+                            <Image
+                              src={logoUrl}
+                              alt={`Логотип ${name}`}
+                              width={64}
+                              height={64}
+                              className="rounded-lg object-contain"
+                            />
+                          </div>
+                        )}
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
                           <p className="text-sm text-gray-600">{keywords}</p>
+                          {product === 'logo' && <p className="text-xs text-gray-500 mt-1">Логотип будет без вотермарки</p>}
                         </div>
                       </div>
                     </div>
@@ -240,7 +296,7 @@ function PaymentContent() {
                         
                         <div>
                           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Email для отправки брендбука
+                            Email для отправки {product === 'logo' ? 'логотипа' : 'брендбука'}
                           </label>
                           <input
                             type="email"

@@ -74,6 +74,7 @@ router.post('/generate-logo', async (req: any, res: any) => {
           keywords: keywords,
           logo_url: logoUrl,
           industry: logoIndustry,
+          is_paid: false, // По умолчанию логотип не оплачен
         })
         .select()
         .single();

@@ -232,14 +232,15 @@ function LogoGeneratorContent() {
                             </li>
                           </ul>
                           <div className="text-center">
-                            <p className="text-2xl font-bold mb-4">999 ₽</p>
+                            <p className="text-2xl font-bold mb-4">499 ₽</p>
                             <Link
                               href={{
-                                pathname: '/payment',
+                                pathname: '/pages/payment',
                                 query: { 
                                   product: 'logo', 
                                   name: name,
-                                  keywords: keywords 
+                                  keywords: keywords,
+                                  logoUrl: logoUrl
                                 },
                               }}
                               className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -277,33 +278,22 @@ function LogoGeneratorContent() {
                             </li>
                           </ul>
                           <div className="text-center">
-                            <p className="text-2xl font-bold mb-4">1999 ₽</p>
-                            <div className="space-y-2">
-                              <Link
-                                href={{
-                                  pathname: '/pages/payment',
-                                  query: { 
-                                    product: 'brandbook', 
-                                    name: name,
-                                    keywords: keywords 
-                                  },
-                                }}
-                                className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                              >
-                                Оплатить
-                              </Link>
+                           <p className="text-2xl font-bold mb-4">999 ₽</p>
+                            <div className="flex flex-col space-y-2">
                               <Link
                                 href={{
                                   pathname: '/pages/brandbook-generator',
-                                  query: { 
+                                  query: {
                                     name: name,
                                     keywords: keywords,
                                     logoUrl: logoUrl,
                                     industry: industry,
-                                    style: style
+                                    style: style,
+                                    slogan: '', // Пока что пустой, будет сгенерирован позже
+                                    isDemo: 'true'
                                   },
                                 }}
-                                className="block w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none"
                               >
                                 Предпросмотр брендбука
                               </Link>

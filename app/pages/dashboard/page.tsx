@@ -20,6 +20,9 @@ interface GeneratedLogo {
   name: string;
   keywords: string;
   logo_url: string;
+  original_logo_url?: string;
+  is_paid: boolean;
+  order_id?: string;
   created_at: string;
 }
 
@@ -124,6 +127,35 @@ export default function Dashboard() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Функция для скачивания файла
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      // Получаем файл как Blob
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Не удалось загрузить файл: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      
+      // Создаем временную ссылку для скачивания
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = filename;
+      
+      // Имитируем клик для начала скачивания
+      document.body.appendChild(link);
+      link.click();
+      
+      // Очищаем
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Ошибка при скачивании файла:', error);
+      // В случае ошибки, просто откроем в новой вкладке как раньше
+      window.open(url, '_blank');
+    }
   };
 
   // Функция для перехода на страницу с брендбуком
@@ -241,23 +273,43 @@ export default function Dashboard() {
                           fill
                           className="object-contain p-4"
                         />
+                        {/* Вотермарка для неоплаченных логотипов */}
+                        {!logo.is_paid && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '3rem' }}>
+                              PIXORA
+                            </div>
+                          </div>
+                        )}
                       </div>
+
                       <div className="p-4">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        <h3 className="text-lg font-semibold text-gray-800 truncate" title={logo.name}>
                           {logo.name}
                         </h3>
-                        <p className="text-sm text-gray-600 mb-2">
+                        <p className="text-sm text-gray-500 mb-2 truncate" title={logo.keywords}>
                           {logo.keywords}
                         </p>
-                        <p className="text-xs text-gray-500 mb-3">
-                          {formatDate(logo.created_at)}
+                        <p className="text-xs text-gray-400">
+                          Создан: {formatDate(logo.created_at)}
                         </p>
-                        <button
-                          onClick={() => window.open(logo.logo_url, '_blank')}
-                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Открыть логотип
-                        </button>
+                        <div className="mt-4 flex flex-col space-y-2">
+                          {!logo.is_paid ? (
+                            <button 
+                              onClick={() => router.push(`/pages/payment?product=logo&name=${encodeURIComponent(logo.name)}&keywords=${encodeURIComponent(logo.keywords)}&logoUrl=${encodeURIComponent(logo.logo_url)}`)}
+                              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                            >
+                              Купить за 499 ₽
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => downloadFile(logo.original_logo_url!, `${logo.name.replace(/\s+/g, '_')}_logo.png`)}
+                              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                            >
+                              Скачать
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

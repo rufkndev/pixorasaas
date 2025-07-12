@@ -69,8 +69,24 @@ export class LogoVariantService {
     brandFonts: BrandFont[]
   ): Promise<Buffer> {
     // Получаем основной шрифт из фирменных шрифтов
-    const mainFont = brandFonts.find(font => font.type === 'main') || brandFonts[0];
-    const fontFamily = mainFont ? `'${mainFont.name}', -apple-system, BlinkMacSystemFont, sans-serif` : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    const mainFont = brandFonts.find(font => font.type === 'primary') || brandFonts[0];
+    
+    // Определяем правильные fallback шрифты в зависимости от категории
+    let fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    if (mainFont) {
+      switch (mainFont.category) {
+        case 'monospace':
+          fontFamily = `'${mainFont.name}', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace`;
+          break;
+        case 'serif':
+          fontFamily = `'${mainFont.name}', 'Times New Roman', 'Georgia', serif`;
+          break;
+        case 'sans-serif':
+        default:
+          fontFamily = `'${mainFont.name}', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
+          break;
+      }
+    }
 
     // Разделяем название на слова
     const words = brandName.split(' ').filter(word => word.length > 0);
@@ -98,7 +114,7 @@ export class LogoVariantService {
               font-size="${fontSize}" 
               font-weight="900" 
               text-anchor="middle" 
-              fill="${brandColors.accent}"
+              fill="${brandColors.primary}"
               filter="url(#innerShadow)"
               style="letter-spacing: 0.02em; text-transform: uppercase;">
           ${word}
@@ -121,10 +137,10 @@ export class LogoVariantService {
           </filter>
         </defs>
         
-        <!-- Фон - закругленный квадрат с градиентом из фирменных цветов -->
+        <!-- Фон - закругленный квадрат с фирменным цветом -->
         <rect x="15" y="15" width="${size-30}" height="${size-30}" 
               rx="${borderRadius}" ry="${borderRadius}" 
-              fill="url(#bgGrad)" 
+              fill="${brandColors.neutral}" 
               filter="url(#shadow)" />
         
         <!-- Внутренний слой для глубины -->
@@ -156,17 +172,40 @@ export class LogoVariantService {
     const logoHeight = metadata.height || 300;
     
     // Получаем основной шрифт из фирменных шрифтов
-    const mainFont = brandFonts.find(font => font.type === 'main') || brandFonts[0];
-    const fontFamily = mainFont ? `'${mainFont.name}', -apple-system, BlinkMacSystemFont, sans-serif` : "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    const mainFont = brandFonts.find(font => font.type === 'primary') || brandFonts[0];
+    
+    // Определяем правильные fallback шрифты в зависимости от категории
+    let fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    if (mainFont) {
+      switch (mainFont.category) {
+        case 'monospace':
+          fontFamily = `'${mainFont.name}', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace`;
+          break;
+        case 'serif':
+          fontFamily = `'${mainFont.name}', 'Times New Roman', 'Georgia', serif`;
+          break;
+        case 'sans-serif':
+        default:
+          fontFamily = `'${mainFont.name}', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif`;
+          break;
+      }
+    }
+    
+    // Разделяем название на слова
+    const words = brandName.split(' ').filter(word => word.length > 0);
     
     // Рассчитываем размеры для цельного логотипа без фона
     const totalWidth = 600;
     const logoAreaHeight = Math.round(totalWidth * 0.5); // Больше места для логотипа
-    const textAreaHeight = Math.round(totalWidth * 0.2); // Место для текста
-    const totalHeight = logoAreaHeight + textAreaHeight + 40; // Отступ между элементами
     
-    // Размер шрифта пропорционален общему размеру
-    const fontSize = Math.min(72, Math.max(48, totalWidth / brandName.length * 0.8));
+    // Рассчитываем размер шрифта в зависимости от количества слов и длины
+    const maxWordLength = Math.max(...words.map(word => word.length));
+    const fontSize = Math.min(72, Math.max(36, totalWidth / Math.max(maxWordLength * 0.8, 10)));
+    
+    // Рассчитываем высоту текстовой области в зависимости от количества строк
+    const lineHeight = fontSize * 1.3;
+    const textAreaHeight = Math.max(Math.round(totalWidth * 0.2), words.length * lineHeight + 20);
+    const totalHeight = logoAreaHeight + textAreaHeight + 40; // Отступ между элементами
     
     // Создаем прозрачный фон
     const transparentBackground = await sharp({
@@ -178,15 +217,15 @@ export class LogoVariantService {
       }
     }).png().toBuffer();
 
-    // Создаем название с черным цветом
-    const textSvg = `
-      <svg width="${totalWidth}" height="${textAreaHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.1)"/>
-          </filter>
-        </defs>
-        <text x="${totalWidth/2}" y="${textAreaHeight/2 + fontSize/3}" 
+    // Рассчитываем позиции для центрирования многострочного текста
+    const totalTextHeight = words.length * lineHeight;
+    const startY = (textAreaHeight - totalTextHeight) / 2 + fontSize * 0.8;
+    
+    // Создаем текстовые элементы для каждого слова
+    const textElements = words.map((word, index) => {
+      const yPosition = startY + index * lineHeight;
+      return `
+        <text x="${totalWidth/2}" y="${yPosition}" 
               font-family="${fontFamily}" 
               font-size="${fontSize}" 
               font-weight="800" 
@@ -194,8 +233,20 @@ export class LogoVariantService {
               fill="#000000"
               filter="url(#textShadow)"
               style="letter-spacing: 0.05em; text-transform: uppercase;">
-          ${brandName}
+          ${word}
         </text>
+      `;
+    }).join('');
+
+    // Создаем название с черным цветом - многострочный текст
+    const textSvg = `
+      <svg width="${totalWidth}" height="${textAreaHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="textShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.1)"/>
+          </filter>
+        </defs>
+        ${textElements}
       </svg>
     `;
 
@@ -238,7 +289,7 @@ export class LogoVariantService {
   }
 
   // Функция для обрезки логотипа со всех сторон
-  private async trimLogo(imageBuffer: Buffer, trimPercentage: number = 20): Promise<Buffer> {
+  private async trimLogo(imageBuffer: Buffer, trimPercentage: number = 15): Promise<Buffer> {
     const metadata = await sharp(imageBuffer).metadata();
     const width = metadata.width || 300;
     const height = metadata.height || 300;
@@ -435,7 +486,7 @@ export class LogoVariantService {
           type: 'abbreviation',
           usage: 'Используется в качестве фавикона, в малых размерах, на соцсетях',
           text: brandName,
-          font: brandFonts.find(font => font.type === 'main')?.name || 'Inter'
+          font: brandFonts.find(font => font.type === 'primary')?.name || 'Inter'
         },
         {
           name: 'Логотип с названием',
@@ -444,7 +495,7 @@ export class LogoVariantService {
           type: 'with_text',
           usage: 'Используется для презентаций, заголовков, на любых фонах',
           text: brandName,
-          font: brandFonts.find(font => font.type === 'main')?.name || 'Inter'
+          font: brandFonts.find(font => font.type === 'primary')?.name || 'Inter'
         }
       ];
       

@@ -133,7 +133,7 @@ function BrandbookGeneratorContent() {
                   {/* Информация о бизнесе */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Информация о бренде</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                       <div>
                         <p className="text-sm font-medium text-gray-500">Название</p>
                         <p className="text-lg font-medium text-gray-900">{name}</p>
@@ -142,30 +142,41 @@ function BrandbookGeneratorContent() {
                         <p className="text-sm font-medium text-gray-500">Ключевые слова</p>
                         <p className="text-lg font-medium text-gray-900">{keywords}</p>
                       </div>
-                      <div className="flex justify-end">
-                        <button
-                          onClick={generateBrandbook}
-                          disabled={isGenerating}
-                          className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
-                        >
-                          {isGenerating ? 'Генерация...' : 'Сгенерировать демо-брендбук'}
-                        </button>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Ниша бизнеса</p>
+                        <p className="text-lg font-medium text-gray-900">{industry}</p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Кнопка генерации */}
+                  <div className="flex justify-center">
+                    <button
+                      onClick={generateBrandbook}
+                      disabled={isGenerating}
+                      className="py-3 px-8 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                    >
+                      {isGenerating ? 'Генерация...' : 'Сгенерировать демо-брендбук'}
+                    </button>
                   </div>
 
                   {/* Основной логотип */}
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Основной логотип</h2>
-                    <div className="bg-gray-50 rounded-lg p-8 flex items-center justify-center">
+                    <div className="bg-gray-50 rounded-lg p-8 flex items-center justify-center min-h-[400px]">
                       <div className="relative">
                         <Image
                           src={logoUrl}
                           alt={`Логотип ${name}`}
-                          width={200}
-                          height={200}
-                          className="max-h-32 max-w-full object-contain"
+                          width={400}
+                          height={400}
+                          className="max-h-80 max-w-full object-contain"
                         />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '5rem' }}>
+                            Pixora
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -269,6 +280,11 @@ function BrandbookGeneratorContent() {
                                   height={120}
                                   className="max-h-24 max-w-full object-contain"
                                 />
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <div className="text-gray-400 font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '1.5rem' }}>
+                                    Pixora
+                                  </div>
+                                </div>
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -616,7 +632,7 @@ function BrandbookGeneratorContent() {
                           }}
                           className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                         >
-                          Заказать полный брендбук - 1999 ₽
+                          Заказать полный брендбук - 999 ₽
                         </Link>
                         
                         <Link

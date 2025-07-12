@@ -151,6 +151,47 @@ router.post('/create-full-brandbook', async (req: any, res: any) => {
       console.error('Error updating brandbook status:', updateError);
     }
 
+    // Обновляем статус логотипа на купленный
+    try {
+      // Пытаемся найти и обновить логотип по основному URL
+      const { data: logoUpdateData, error: logoUpdateError } = await supabase
+        .from('generated_logos')
+        .update({ 
+          is_paid: true,
+          order_id: orderId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('logo_url', logoUrl)
+        .select();
+
+      // Если логотип не найден по основному URL, попробуем найти по original_logo_url
+      if (logoUpdateError || !logoUpdateData || logoUpdateData.length === 0) {
+        const { data: originalLogoUpdateData, error: originalLogoUpdateError } = await supabase
+          .from('generated_logos')
+          .update({ 
+            is_paid: true,
+            order_id: orderId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('original_logo_url', logoUrl)
+          .select();
+
+        if (originalLogoUpdateError) {
+          console.error('Error updating logo status by original URL:', originalLogoUpdateError);
+        } else if (originalLogoUpdateData && originalLogoUpdateData.length > 0) {
+          console.log('Logo status updated to paid by original URL:', logoUrl);
+        } else {
+          console.log('No logo found to update for URL:', logoUrl);
+        }
+      } else {
+        console.log('Logo status updated to paid for URL:', logoUrl);
+      }
+    } catch (logoError) {
+      console.error('Error updating logo status:', logoError);
+    }
+
     console.log('Full brandbook created successfully:', {
       brandbookId: savedBrandbook.id,
       orderId: orderId

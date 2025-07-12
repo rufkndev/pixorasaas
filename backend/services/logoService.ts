@@ -77,10 +77,10 @@ export class LogoService {
   async generateLogo(businessName: string, keywords: string, industry: string): Promise<string> {
     const prompt = this.createLogoPrompt(businessName, keywords, industry);
     
-    const initialResponse = await axios.post(`${this.baseUrl}/networks/dalle-3`, {
+    const initialResponse = await axios.post(`${this.baseUrl}/networks/gpt-image-1`, {
       prompt: prompt,
       size: "1024x1024",
-      quality: "hd"
+      quality: "medium"
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -103,6 +103,13 @@ export class LogoService {
     return logoUrl;
   }
 
+  // Генерация логотипа без вотермарки (для оплаченных версий)
+  async generateCleanLogo(businessName: string, keywords: string, industry: string = 'general'): Promise<string> {
+    // Используем тот же метод генерации, что и для обычного логотипа
+    // Вотермарка добавляется на фронтенде, а не здесь
+    return this.generateLogo(businessName, keywords, industry);
+  }
+
   // Создание промпта для логотипа
   private createLogoPrompt(name: string, keywords: string, industry: string): string {
     const formattedKeywords = keywords.split(',')
@@ -110,18 +117,21 @@ export class LogoService {
       .filter(k => k.length > 0)
       .join(', ');
     
-    return `Create a professional, minimalist logo for a business named "${name}" that specializes in ${industry}.  
-The logo should be:
-- Clean, modern, and visually striking
-- Suitable for both digital and print media
-- Memorable and instantly recognizable
-- Using a sophisticated color palette that reflects the business essence
-- Without any text or typography
-- With clever use of negative space and geometric shapes
-- Balanced composition with strong visual hierarchy
-- Simple enough to be recognizable at small sizes
+    return `Design a professional and minimalist logo for a business named "${name}" that operates in the ${industry} sector.
 
-The logo should capture the essence of ${formattedKeywords} while maintaining a timeless, professional aesthetic. Create the logo against a clean white background in a square format.;`;
+Guidelines:
+- The logo must be clean, modern, abstract, and visually impactful.
+- Avoid all text, letters, numbers, and typographic symbols.
+- Use only shapes, lines, forms, or symbolic elements that capture the idea of: ${formattedKeywords}.
+- Focus on geometric clarity, negative space, and visual balance.
+- The logo should work well in both color and monochrome.
+- It must be scalable and recognizable at small sizes.
+- Use a refined and timeless color palette (optional accent tones).
+- Ensure a white or transparent background and square format.
+
+Goal:
+Create a brand-ready vector logo that embodies the values and visual identity of a modern ${industry} business. The result should look like a finished corporate symbol, appropriate for digital and print use.
+`;
   }
 
   // Извлечение URL логотипа из ответа
@@ -211,5 +221,7 @@ export const getLogoService = (): LogoService => {
 // Для обратной совместимости
 export const logoService = {
   generateLogo: (businessName: string, keywords: string, industry: string) => 
-    getLogoService().generateLogo(businessName, keywords, industry)
+    getLogoService().generateLogo(businessName, keywords, industry),
+  generateCleanLogo: (businessName: string, keywords: string, industry: string = 'general') => 
+    getLogoService().generateCleanLogo(businessName, keywords, industry)
 }; 

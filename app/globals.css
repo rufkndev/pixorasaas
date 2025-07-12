@@ -24,6 +24,10 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
+html {
+  @apply scroll-smooth;
+}
+
 /* Улучшение стилей для форм */
 input, select, textarea {
   @apply border-gray-300 focus:border-gray-800 focus:ring focus:ring-gray-200 focus:ring-opacity-50 rounded-md shadow-sm;
