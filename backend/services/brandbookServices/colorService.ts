@@ -577,9 +577,6 @@ export class ColorService {
     const style = this.determineColorStyle(keywords);
     
     const styleData = COLOR_DATABASE[style as keyof typeof COLOR_DATABASE];
-    if (!styleData) {
-      throw new Error(`Style ${style} not found in color database`);
-    }
     
     // Выбираем случайную палитру из доступных
     const randomPalette = styleData.palettes[Math.floor(Math.random() * styleData.palettes.length)];

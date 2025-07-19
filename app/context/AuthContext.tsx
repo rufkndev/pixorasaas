@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
 import { createSupabaseClient, resetSupabaseClient } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
 
 // Определяем структуру контекста аутентификации
 // Этот интерфейс описывает все данные и функции, которые будут доступны через контекст
@@ -34,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
   
   // Создаем клиент Supabase только один раз при монтировании компонента
   const supabase = useMemo(() => createSupabaseClient(), []);
@@ -89,18 +87,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
-  /**
-   * Функция для выхода пользователя из системы
+   /* Функция для выхода пользователя из системы
    * Выполняет полную очистку данных аутентификации:
    * 1. Очищает локальное состояние
    * 2. Выходит из Supabase
    * 3. Очищает серверные куки
    * 4. Сбрасывает клиент Supabase
-   * 5. Перенаправляет на главную страницу
-   */
+   * 5. Перенаправляет на главную страницу */
   const signOut = async () => {
     try {
-      console.log('AuthContext: Starting sign out process');
       setIsLoading(true);
       
       // 1. Очистка состояния
@@ -113,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error('Error during Supabase signOut:', error);
         } else {
-          console.log('AuthContext: Successfully signed out from Supabase');
         }
       } catch (supabaseError) {
         console.error('Supabase signOut error:', supabaseError);
@@ -130,7 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         
         if (response.ok) {
-          console.log('AuthContext: Server-side sign out successful');
         } else {
           console.warn('AuthContext: Server-side sign out failed');
         }
@@ -140,9 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // 4. Сбрасываем экземпляр клиента Supabase
       resetSupabaseClient();
-      
-      // 5. Принудительное обновление страницы для сброса всего состояния
-      console.log('AuthContext: Reloading page to complete sign out');
       
       // Используем простой редирект вместо сложной логики
       window.location.href = '/';

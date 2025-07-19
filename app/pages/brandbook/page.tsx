@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import Head from 'next/head';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
@@ -29,7 +28,7 @@ if (typeof document !== 'undefined') {
 function BrandbookContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const {isLoading: isAuthLoading } = useAuth();
   
   // Получаем данные из URL параметров
   const orderId = searchParams.get('orderId') || '';
@@ -86,17 +85,12 @@ function BrandbookContent() {
       // Загружаем данные брендбука из API
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/brandbook/${orderId}?userId=${userId}`;
       
-      console.log('Loading brandbook from API:', apiUrl);
-      
       const response = await fetch(apiUrl);
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.error || 'Ошибка при загрузке брендбука');
       }
-      
-      console.log('Brandbook loaded successfully:', data);
-      console.log('Color palette from API:', data.brandbook?.colorPalette);
       
       // Преобразуем данные из API в формат для отображения
       const transformedBrandbook = {
@@ -140,7 +134,6 @@ function BrandbookContent() {
       }
     } catch (error) {
       console.error('Error loading brandbook:', error);
-      // Если брендбук не найден, перенаправляем на главную
       router.push('/');
     } finally {
       setIsLoading(false);

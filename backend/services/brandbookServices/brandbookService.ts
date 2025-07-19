@@ -47,8 +47,6 @@ export class BrandbookService {
       return brandElements;
       
     } catch (error) {
-      console.error('Error generating icons:', error);
-      
       // Возвращаем пустой массив в случае ошибки
       return [];
     }

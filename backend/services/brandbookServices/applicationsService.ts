@@ -288,8 +288,6 @@ export class ApplicationsService {
   // Основная функция генерации примеров применения
   async generateApplications(brandbook: any): Promise<BrandApplications> {
     try {
-      console.log('Generating brand applications for:', brandbook.businessName);
-      
       const businessCard = this.generateBusinessCard(
         brandbook.colors || [],
         brandbook.fonts || [],
@@ -334,7 +332,6 @@ export class ApplicationsService {
         websiteLanding
       };
       
-      console.log('Brand applications generated successfully');
       return applications;
       
     } catch (error) {

@@ -25,7 +25,7 @@ export default function Testimonials() {
       content: "Сервис превзошел все мои ожидания. Мы перепробовали множество вариантов названий и логотипов, прежде чем найти идеальный. Pixora сэкономила нам время и деньги.",
       author: {
         name: "Мария Авделова",
-        role: "Основатель, BeautyShop",
+        role: "Основатель, OnlyBeauty",
         imageUrl: "/testimonials/person3.svg"
       }
     },

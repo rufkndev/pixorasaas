@@ -9,9 +9,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
   try {
     const { name, keywords, userId, selectedName, industry } = req.body;
 
-    // Логирование для диагностики
-    console.log('Generate logo request body:', req.body);
-    
     // Валидация обязательных полей
     if (!name && !selectedName) {
       return res.status(400).json({ 
@@ -24,13 +21,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
       return res.status(400).json({ 
         error: 'Keywords are required',
         message: 'Keywords are required for logo generation'
-      });
-    }
-    
-    if (!userId) {
-      return res.status(400).json({ 
-        error: 'User ID is required',
-        message: 'User authentication is required'
       });
     }
 
@@ -59,7 +49,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
     }
 
     // Генерация логотипа
-    console.log('Generating logo with:', { businessName, keywords, logoIndustry });
     const logoUrl = await logoService.generateLogo(businessName, keywords, logoIndustry);
 
     // Сохранение в базу данных
@@ -80,7 +69,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
         .single();
         
       if (insertError) {
-        console.error('Error saving logo:', insertError);
         return res.status(200).json({ 
           success: true,
           logoUrl: logoUrl,
@@ -100,7 +88,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
         industry: logoIndustry
       });
     } catch (dbError) {
-      console.error('Database error:', dbError);
       return res.status(200).json({ 
         success: true,
         logoUrl: logoUrl,
@@ -112,12 +99,6 @@ router.post('/generate-logo', async (req: any, res: any) => {
     }
   } catch (error: any) {
     console.error('Error generating logo:', error);
-    
-    // Более подробное логирование ошибок
-    if (error.response) {
-      console.error('API Error Response:', error.response.data);
-      console.error('API Error Status:', error.response.status);
-    }
     
     return res.status(500).json({ 
       error: 'Something went wrong',
@@ -143,11 +124,6 @@ router.get('/user-logos/:userId', async (req: any, res: any) => {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-      
-    if (error) {
-      console.error('Error fetching logos:', error);
-      return res.status(200).json({ logos: [] });
-    }
     
     return res.status(200).json({ logos: data || [] });
   } catch (error: any) {

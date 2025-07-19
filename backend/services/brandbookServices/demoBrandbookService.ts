@@ -10,8 +10,6 @@ export interface DemoBrandbook {
 export class DemoBrandbookService {
   // Генерация демо брендбука (только слоган и базовые вариации логотипа)
   async generateDemoBrandbook(name: string, keywords: string, logoUrl: string, existingSlogan?: string): Promise<DemoBrandbook> {
-    console.log(`Starting demo brandbook generation for: ${name}`);
-    
     // Используем переданный слоган или генерируем новый
     const slogan = existingSlogan || await sloganService.generateSlogan(name, keywords, 'профессиональный и современный');
     
@@ -23,11 +21,6 @@ export class DemoBrandbookService {
       logoVariants: logoVariants
     };
 
-    console.log('Demo brandbook generation completed:', { 
-      slogan, 
-      logoVariantsCount: logoVariants.length
-    });
-    
     return brandbook;
   }
 }

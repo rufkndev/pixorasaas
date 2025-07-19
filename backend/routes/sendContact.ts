@@ -81,7 +81,6 @@ router.post('/send-contact', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error sending contact email:', error);
     res.status(500).json({ 
       error: 'Ошибка при отправке сообщения. Попробуйте позже.' 
     });

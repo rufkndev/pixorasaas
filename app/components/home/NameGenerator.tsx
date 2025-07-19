@@ -18,7 +18,6 @@ export default function NameGenerator() {
   const [selectedName, setSelectedName] = useState('');
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [apiWarning, setApiWarning] = useState('');
 
   // Предотвращаем гидратацию, устанавливая mounted только после первого рендера
   useEffect(() => {
@@ -29,7 +28,6 @@ export default function NameGenerator() {
   const generateNames = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setApiWarning('');
     
     if (!user) {
       setError('Пожалуйста, войдите в систему, чтобы сгенерировать названия');
@@ -44,10 +42,7 @@ export default function NameGenerator() {
     setIsGenerating(true);
     
     try {
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-names`;
-      console.log('Sending request to:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-names`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,31 +57,14 @@ export default function NameGenerator() {
       });
       
       const data = await response.json();
-      console.log('API response:', data);
       
       if (!response.ok) {
-        let errorMessage = data.error || 'Ошибка при генерации названий';
-        if (data.details) {
-          errorMessage += `: ${JSON.stringify(data.details)}`;
-        }
-        if (data.message) {
-          errorMessage += ` (${data.message})`;
-        }
-        throw new Error(errorMessage);
-      }
-      
-      if (data.warning) {
-        setApiWarning(data.warning);
-      }
-      
-      if (!data.names || data.names.length === 0) {
-        throw new Error('Не удалось получить названия от сервера');
+        throw new Error(data.error || 'Ошибка при генерации названий');
       }
       
       setGeneratedNames(data.names);
     } catch (err: any) {
-      console.error('Error generating names:', err);
-      setError(`Произошла ошибка при генерации названий: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
+      setError(`Произошла ошибка при генерации названий: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -101,37 +79,6 @@ export default function NameGenerator() {
       router.push(`/pages/logo-generator?name=${encodeURIComponent(selectedName)}&keywords=${encodeURIComponent(keywords)}&industry=${encodeURIComponent(industry)}&style=${encodeURIComponent(style)}`);
     }
   };
-
-  // Функция для проверки статуса сервера
-  const checkServerStatus = async () => {
-    try {
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/health`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      
-      if (response.ok && data.status === 'ok') {
-        console.log('Server is running:', data);
-        return true;
-      } else {
-        console.error('Server health check failed:', data);
-        return false;
-      }
-    } catch (err) {
-      console.error('Server health check error:', err);
-      return false;
-    }
-  };
-
-  // Проверяем статус сервера при монтировании компонента
-  useEffect(() => {
-    if (mounted) {
-      checkServerStatus().then(isRunning => {
-        if (!isRunning) {
-          setError('Сервер генерации названий недоступен. Пожалуйста, убедитесь, что сервер запущен командой "npm run server".');
-        }
-      });
-    }
-  }, [mounted]);
 
   // Компонент скелетона для состояния загрузки
   const LoadingSkeleton = () => (
@@ -188,7 +135,7 @@ export default function NameGenerator() {
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
-                    placeholder="Например: IT, ресторан, салон красоты"
+                    placeholder="Например: IT, здравоохранение, образование, строительство, ресторан, салон красоты"
                     required
                   />
                 </div>
@@ -205,7 +152,7 @@ export default function NameGenerator() {
                     value={keywords}
                     onChange={(e) => setKeywords(e.target.value)}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
-                    placeholder="Например: инновации, экология, технологии"
+                    placeholder="Например: инновации, технологии, финансы, премиальный, элитный, минималистичный"
                     required
                   />
                 </div>
@@ -272,12 +219,6 @@ export default function NameGenerator() {
           ) : (
             <div className="space-y-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Выберите название, которое вам нравится:</h3>
-              
-              {apiWarning && (
-                <div className="p-3 bg-yellow-50 text-yellow-700 rounded-md border border-yellow-200 text-sm">
-                  {apiWarning}
-                </div>
-              )}
               
               <div className="grid grid-cols-2 gap-4">
                 {generatedNames.map((name, index) => (

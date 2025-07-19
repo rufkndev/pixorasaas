@@ -7,15 +7,12 @@ const router = Router();
 // Маршрут для генерации названий компаний
 router.post('/generate-names', async (req: any, res: any) => {
   try {
-    console.log('Received request for name generation:', req.body);
     
     const { industry, keywords, style, preferences, userId } = req.body;
 
     try {
       // Генерируем названия через AI сервис
       const generatedNames = await nameService.generateNames(industry, keywords, style, preferences);
-      
-      console.log('Generated names:', generatedNames);
 
       // Проверяем, что хотя бы одно название было сгенерировано
       if (generatedNames.length === 0) {
@@ -36,8 +33,6 @@ router.post('/generate-names', async (req: any, res: any) => {
           });
         }
         
-        console.log('Attempting to save to database with userId:', userId);
-        
         // Прямая вставка в таблицу
         const { data: insertData, error: insertError } = await supabase
           .from('generated_names')
@@ -52,16 +47,12 @@ router.post('/generate-names', async (req: any, res: any) => {
           });
           
         if (insertError) {
-          console.error('Error inserting to database:', insertError);
           console.error('Error details:', JSON.stringify(insertError, null, 2));
         }
 
-        console.log('Successfully saved to database:', insertData);
         // Если все прошло успешно, возвращаем сгенерированные названия
         return res.status(200).json({ names: generatedNames });
       } catch (supabaseError) {
-        console.error('Supabase connection error:', supabaseError);
-        // Даже если сохранение не удалось, возвращаем сгенерированные названия
         return res.status(200).json({ 
           names: generatedNames,
           warning: 'Names were generated but could not be saved to database due to connection error'
@@ -89,18 +80,10 @@ router.post('/generate-names', async (req: any, res: any) => {
 router.get('/user-names/:userId', async (req: any, res: any) => {
   try {
     const { userId } = req.params;
-    console.log(`Received request for user names with userId: ${userId}`);
-
-    // Проверяем наличие userId
-    if (!userId) {
-      console.log('User ID is missing in request');
-      return res.status(400).json({ error: 'User ID is required' });
-    }
 
     const supabase = getSupabaseClient();
     
     // Прямой запрос к таблице
-    console.log(`Querying generated_names table for userId: ${userId}`);
     const { data: selectData, error: selectError } = await supabase
       .from('generated_names')
       .select('*')
@@ -109,17 +92,13 @@ router.get('/user-names/:userId', async (req: any, res: any) => {
       
     // Обрабатываем ошибку
     if (selectError) {
-      console.error('Error fetching user names:', selectError);
-      
       return res.status(500).json({ error: 'Failed to fetch generated names' });
     }
     
     // Возвращаем результаты
-    console.log(`Successfully retrieved ${selectData?.length || 0} records`);
     return res.status(200).json({ history: selectData || [] });
   } catch (error: any) {
     // Обработка общих ошибок
-    console.error('Error fetching user names:', error);
     return res.status(500).json({ error: 'Something went wrong' });
   }
 });

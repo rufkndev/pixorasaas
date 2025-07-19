@@ -56,7 +56,6 @@ function LogoGeneratorContent() {
           keywords,
           userId: user.id,
           industry,
-          // name уже содержит выбранное пользователем название из URL-параметра
           selectedName: name
         }),
       });
@@ -66,9 +65,7 @@ function LogoGeneratorContent() {
       // Устанавливаем URL сгенерированного логотипа
       setLogoUrl(data.logoUrl);
       
-      console.log('Logo generated successfully:', data);
     } catch (err: any) {
-      console.error('Error generating logo:', err);
       setError(`Произошла ошибка при генерации логотипа: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
     } finally {
       setIsGenerating(false);
@@ -289,7 +286,7 @@ function LogoGeneratorContent() {
                                     logoUrl: logoUrl,
                                     industry: industry,
                                     style: style,
-                                    slogan: '', // Пока что пустой, будет сгенерирован позже
+                                    slogan: '', 
                                     isDemo: 'true'
                                   },
                                 }}

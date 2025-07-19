@@ -50,10 +50,7 @@ function BrandbookGeneratorContent() {
     try {
       // Вызов API для генерации брендбука
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-brandbook`;
-      
-      console.log('Sending brandbook generation request to:', apiUrl);
-      console.log('Request data:', { name, keywords, logoUrl, userId: user.id });
-      
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -79,7 +76,6 @@ function BrandbookGeneratorContent() {
       setBrandbook(data.brandbook);
       
     } catch (err: any) {
-      console.error('Error generating brandbook:', err);
       setError(`Произошла ошибка при генерации брендбука: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
     } finally {
       setIsGenerating(false);

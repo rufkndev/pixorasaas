@@ -1,21 +1,8 @@
-/**
- * Страница "Связаться с нами" (Contact Us)
+/* Страница "Связаться с нами" (Contact Us)
  * 
  * Этот файл содержит компонент страницы контактов, который позволяет пользователям
  * связаться с компанией через контактную форму. Страница также отображает
- * контактную информацию и часто задаваемые вопросы.
- * 
- * Страница включает:
- * - Заголовок и подзаголовок
- * - Контактную информацию (email: arttaranovbusiness@gmail.com)
- * - Раздел с часто задаваемыми вопросами
- * - Интерактивную форму обратной связи с валидацией полей
- * - Подтверждение отправки сообщения
- * - Кнопку для возврата на главную страницу
- * 
- * Эта страница является клиентским компонентом (использует "use client" директиву),
- * так как содержит интерактивные элементы, требующие React хуков (useState).
- */
+ * контактную информацию и часто задаваемые вопросы.*/
 
 "use client";
 
@@ -123,14 +110,14 @@ export default function ContactPage() {
                   <div>
                     <h4 className="text-base font-medium text-gray-900">Могу ли я запросить изменения?</h4>
                     <p className="mt-2 text-gray-700">
-                      Да, во время генерации, вы можете запросить неограниченное количество изменений до тех пор, пока не будете полностью удовлетворены результатом.
+                      Да, во время генерации, вы сможете запросить до 10 изменений, чего вполне достаточно для того, чтобы получить результат, который вам нравится.
                     </p>
                   </div>
                   {/* FAQ 3 */}
                   <div>
                     <h4 className="text-base font-medium text-gray-900">Какие форматы файлов я получу?</h4>
                     <p className="mt-2 text-gray-700">
-                      Для логотипов мы предоставляем файлы в форматах SVG и PNG. Брендбук доступен в форматах ZIP.
+                      Мы предоставляем исходные файлы в форматах SVG и PNG.
                     </p>
                   </div>
                 </div>
@@ -175,7 +162,7 @@ export default function ContactPage() {
                     {/* Поле для ввода имени */}
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Имя
+                        Ваше имя
                       </label>
                       <div className="mt-1">
                         <input
@@ -191,7 +178,7 @@ export default function ContactPage() {
                     {/* Поле для ввода email */}
                     <div>
                       <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Email
+                        Ваш email
                       </label>
                       <div className="mt-1">
                         <input
@@ -207,7 +194,7 @@ export default function ContactPage() {
                     {/* Поле для ввода сообщения */}
                     <div>
                       <label htmlFor="message" className="block text-sm font-medium text-gray-700">
-                        Сообщение
+                        Ваше сообщение
                       </label>
                       <div className="mt-1">
                         <textarea

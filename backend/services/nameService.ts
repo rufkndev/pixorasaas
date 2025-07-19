@@ -103,10 +103,6 @@ export class NameService {
       }
     });
 
-    if (!initialResponse.data.request_id) {
-      throw new Error('No request_id in response');
-    }
-
     const completedResponse = await this.waitForResult(initialResponse.data.request_id);
     const generatedText = this.extractTextFromResponse(completedResponse);
     
@@ -114,10 +110,6 @@ export class NameService {
       .split('\n')
       .map(name => name.trim())
       .filter(name => name.length > 0);
-
-    if (generatedNames.length === 0) {
-      throw new Error('No names were generated');
-    }
 
     return generatedNames;
   }

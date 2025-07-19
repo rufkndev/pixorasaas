@@ -137,7 +137,7 @@ function PaymentContent() {
         router.push('/pages/dashboard');
         
       } else if (product === 'brandbook') {
-        // Обработка оплаты брендбука (существующая логика)
+        // Обработка оплаты брендбука 
         const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/create-full-brandbook`;
         
         const response = await fetch(apiUrl, {

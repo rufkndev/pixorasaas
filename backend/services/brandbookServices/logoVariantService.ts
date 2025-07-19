@@ -2,7 +2,6 @@ import axios from 'axios';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
-import { colord } from 'colord';
 
 export interface LogoVariant {
   name: string;
@@ -329,7 +328,6 @@ export class LogoVariantService {
   // Генерация базовых вариаций логотипа (для демо)
   async generateBasicLogoVariants(originalLogoUrl: string, brandName: string): Promise<LogoVariant[]> {
     try {
-      console.log(`Generating basic logo variants for: ${brandName}`);
       
       // Скачиваем оригинальное изображение
       const originalBuffer = await this.downloadImage(originalLogoUrl);
@@ -377,7 +375,6 @@ export class LogoVariantService {
         }
       ];
       
-      console.log(`Generated ${logoVariants.length} basic logo variants`);
       return logoVariants;
       
     } catch (error) {
@@ -402,7 +399,6 @@ export class LogoVariantService {
     brandFonts: BrandFont[]
   ): Promise<LogoVariant[]> {
     try {
-      console.log(`Generating full logo variants for: ${brandName}`);
       
       // Скачиваем оригинальное изображение
       const originalBuffer = await this.downloadImage(originalLogoUrl);
@@ -499,7 +495,6 @@ export class LogoVariantService {
         }
       ];
       
-      console.log(`Generated ${logoVariants.length} logo variants successfully`);
       return logoVariants;
       
     } catch (error) {

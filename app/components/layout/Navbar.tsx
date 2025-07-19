@@ -70,7 +70,6 @@ export default function Navbar() {
   const navigateToDashboard = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Navigating to dashboard...');
     setIsDropdownOpen(false);
     setIsMenuOpen(false);
     router.push('/pages/dashboard');
@@ -85,7 +84,6 @@ export default function Navbar() {
     
     try {
       setIsSigningOut(true);
-      console.log('Navbar: Signing out...');
       setIsDropdownOpen(false);
       setIsMenuOpen(false);
       

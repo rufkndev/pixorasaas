@@ -1009,13 +1009,9 @@ export class FontService {
 
   // Генерация шрифтов на основе стиля и сферы бизнеса
   async generateFonts(keywords: string, logoUrl?: string): Promise<Font[]> {
-    console.log('Generating fonts for keywords:', keywords);
     
     const style = this.determineStyle(keywords);
     const businessSpheres = this.determineBusinessSphere(keywords);
-    
-    console.log('Determined style:', style);
-    console.log('Business spheres:', businessSpheres);
     
     const styleData = FONT_DATABASE[style as keyof typeof FONT_DATABASE];
     if (!styleData) {
@@ -1058,8 +1054,6 @@ export class FontService {
         });
       }
     });
-    
-    console.log(`Generated ${fonts.length} fonts for business types [${bestVariant.businessType?.join(', ')}]:`, fonts.map((f: Font) => f.name));
     
     return fonts;
   }

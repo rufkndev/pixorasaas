@@ -20,7 +20,6 @@ router.post('/purchase-logo', async (req: any, res: any) => {
     const supabase = getSupabaseClient();
 
     // Создаем чистый логотип без вотермарки
-    console.log('Generating clean logo for:', { name, keywords });
     const cleanLogoUrl = await logoService.generateCleanLogo(name, keywords);
 
     // Ищем существующий логотип с таким же URL

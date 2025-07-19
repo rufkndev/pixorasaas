@@ -91,21 +91,13 @@ const convertHtmlToSvg = (htmlContent: string, width: number, height: number): s
 </svg>`;
 };
 
-
-
 const router = Router();
-
-
 
 // Endpoint для скачивания вариаций логотипов
 router.get('/download-logo-variants/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { userId, format } = req.query;
-
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
 
     const supabase = getSupabaseClient();
     
@@ -116,10 +108,6 @@ router.get('/download-logo-variants/:orderId', async (req, res) => {
       .eq('order_id', orderId)
       .eq('user_id', userId)
       .single();
-
-    if (error || !brandbook) {
-      return res.status(404).json({ error: 'Brandbook not found' });
-    }
 
     // Создаем ZIP архив
     const archive = archiver('zip', {
@@ -162,10 +150,6 @@ router.get('/download-icons/:orderId', async (req, res) => {
     const { orderId } = req.params;
     const { userId } = req.query;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
     const supabase = getSupabaseClient();
     
     // Получаем данные брендбука
@@ -175,10 +159,6 @@ router.get('/download-icons/:orderId', async (req, res) => {
       .eq('order_id', orderId)
       .eq('user_id', userId)
       .single();
-
-    if (error || !brandbook) {
-      return res.status(404).json({ error: 'Brandbook not found' });
-    }
 
     // Создаем ZIP архив
     const archive = archiver('zip', {
@@ -196,16 +176,13 @@ router.get('/download-icons/:orderId', async (req, res) => {
     for (const icon of brandbook.icons || []) {
       try {
         const iconName = icon.name.replace(/[^a-zA-Z0-9]/g, '_');
-        console.log(`Processing icon: ${icon.name} (${iconName})`);
         
         // Если есть SVG код, сохраняем его
         if (icon.svg) {
-          console.log(`Icon ${iconName} has SVG content: ${icon.svg.substring(0, 100)}...`);
           
           // Проверяем что SVG содержит корректные данные
           let svgContent = icon.svg;
           if (!svgContent.includes('<svg') || svgContent.trim().length < 10) {
-            console.log(`Icon ${iconName} has invalid SVG, creating fallback`);
             // Создаем fallback SVG если оригинальный некорректный
             svgContent = `<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
               <circle cx="32" cy="32" r="28" fill="#2563eb" opacity="0.1"/>
@@ -252,10 +229,6 @@ router.get('/download-applications/:orderId', async (req, res) => {
     const { orderId } = req.params;
     const { userId } = req.query;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
     const supabase = getSupabaseClient();
     
     // Получаем данные брендбука
@@ -265,10 +238,6 @@ router.get('/download-applications/:orderId', async (req, res) => {
       .eq('order_id', orderId)
       .eq('user_id', userId)
       .single();
-
-    if (error || !brandbook) {
-      return res.status(404).json({ error: 'Brandbook not found' });
-    }
 
     // Создаем ZIP архив
     const archive = archiver('zip', {
@@ -281,7 +250,6 @@ router.get('/download-applications/:orderId', async (req, res) => {
     archive.pipe(res);
 
     const applications = brandbook.applications || {};
-    console.log(`Processing ${Object.keys(applications).length} application types:`, Object.keys(applications));
 
     const templateSizes = {
       businessCard: { width: 400, height: 200 },
@@ -296,7 +264,6 @@ router.get('/download-applications/:orderId', async (req, res) => {
     // Конвертируем HTML шаблоны в SVG для скачивания
     for (const [appType, appData] of Object.entries(applications)) {
       try {
-        console.log(`Processing application: ${appType}`);
         const typedAppData = appData as any;
         
         if (appType === 'businessCard' && typedAppData.template) {

@@ -14,16 +14,6 @@ router.post('/generate-brandbook', async (req: any, res: any) => {
       return res.status(400).json({ error: 'Missing required fields: name, keywords, logoUrl' });
     }
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    if (!process.env.GENAPI_KEY) {
-      return res.status(500).json({ error: 'Server configuration error: GenAPI key is missing' });
-    }
-
-    console.log('Starting demo brandbook generation for:', { name, keywords, userId, brandStyle, industry });
-
     // Генерируем демо-брендбук (только слоган и базовые вариации логотипа)  
     const brandbook = await brandbookService.generateDemoBrandbook(name, keywords, logoUrl);
 
@@ -64,15 +54,7 @@ router.post('/create-full-brandbook', async (req: any, res: any) => {
       return res.status(400).json({ 
         error: 'Missing required fields: brandStyle, industry' 
       });
-    }
-
-    if (!process.env.GENAPI_KEY) {
-      return res.status(500).json({ 
-        error: 'Server configuration error: GenAPI key is missing' 
-      });
-    }
-
-    console.log('Creating full brandbook with data:', { orderId, name, keywords, brandStyle, industry });
+    };
 
     const supabase = getSupabaseClient();
 
@@ -147,9 +129,6 @@ router.post('/create-full-brandbook', async (req: any, res: any) => {
       })
       .eq('id', savedBrandbook.id);
 
-    if (updateError) {
-      console.error('Error updating brandbook status:', updateError);
-    }
 
     // Обновляем статус логотипа на купленный
     try {
@@ -178,24 +157,16 @@ router.post('/create-full-brandbook', async (req: any, res: any) => {
           .eq('original_logo_url', logoUrl)
           .select();
 
-        if (originalLogoUpdateError) {
-          console.error('Error updating logo status by original URL:', originalLogoUpdateError);
-        } else if (originalLogoUpdateData && originalLogoUpdateData.length > 0) {
-          console.log('Logo status updated to paid by original URL:', logoUrl);
+          if (originalLogoUpdateError) {
+            console.error('Error updating logo status by original URL:', originalLogoUpdateError);
+          } else if (originalLogoUpdateData && originalLogoUpdateData.length > 0) {
         } else {
-          console.log('No logo found to update for URL:', logoUrl);
         }
       } else {
-        console.log('Logo status updated to paid for URL:', logoUrl);
       }
     } catch (logoError) {
       console.error('Error updating logo status:', logoError);
     }
-
-    console.log('Full brandbook created successfully:', {
-      brandbookId: savedBrandbook.id,
-      orderId: orderId
-    });
 
     return res.status(201).json({
       success: true,
@@ -301,11 +272,6 @@ router.get('/user-brandbooks/:userId', async (req: any, res: any) => {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-      
-    if (error) {
-      console.error('Error fetching brandbooks:', error);
-      return res.status(200).json({ brandbooks: [] });
-    }
     
     return res.status(200).json({ brandbooks: data || [] });
   } catch (error: any) {
@@ -324,18 +290,10 @@ router.post('/generate-logo-variants', async (req: any, res: any) => {
       return res.status(400).json({ error: 'Missing required fields: logoUrl, brandName' });
     }
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    console.log('Starting logo variants generation for:', { brandName, logoUrl });
-
     // Генерируем базовые вариации логотипа (для демо используем простые варианты)
     const { logoVariantService } = await import('../services/brandbookServices/logoVariantService');
     const logoVariants = await logoVariantService.generateBasicLogoVariants(logoUrl, brandName);
     
-    console.log('Generated logo variants:', logoVariants);
-
     return res.status(200).json({ 
       success: true,
       logoVariants: logoVariants,

@@ -88,10 +88,6 @@ export class LogoService {
       }
     });
     
-    if (!initialResponse.data?.request_id) {
-      throw new Error('Invalid response from GenAPI: missing request_id');
-    }
-    
     // Используем больше попыток для генерации изображений (они дольше обрабатываются)
     const generationResult = await this.waitForResult(initialResponse.data.request_id, 120, 5000);
     const logoUrl = this.extractLogoUrl(generationResult);
