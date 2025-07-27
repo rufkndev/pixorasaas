@@ -93,6 +93,49 @@ export default function ContactPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Телефон */}
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h2l2 7h6l2-7h2" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15a4 4 0 01-8 0" />
+                    </svg>
+                  </div>
+                  <div className="ml-3 text-gray-700">
+                    <p className="text-sm font-medium text-gray-900">Телефон</p>
+                    <p className="mt-1">
+                      <a href="tel:+79621206360" className="hover:text-gray-900">+7 (962) 120-63-60</a>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Адрес */}
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21l-5-5-5 5V5a2 2 0 012-2h6a2 2 0 012 2z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3 text-gray-700">
+                    <p className="text-sm font-medium text-gray-900">Адрес</p>
+                    <p className="mt-1">693006, Россия, Сахалинская Обл, г. Южно-Сахалинск, ул. Ленина, д. 327А, кв. 4</p>
+                  </div>
+                </div>
+
+                {/* Реквизиты */}
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2-2 4 4m0 0l2-2 4 4" />
+                    </svg>
+                  </div>
+                  <div className="ml-3 text-gray-700 text-sm">
+                    <p className="font-medium text-gray-900">Реквизиты ИП Таранов Артём Игоревич</p>
+                    <p className="mt-1">ИНН: 650302923331</p>
+                    <p>ОГРНИП: 325650000017843</p>
+                  </div>
+                </div>
               </div>
 
               {/* Раздел с часто задаваемыми вопросами */}

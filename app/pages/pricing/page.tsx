@@ -103,7 +103,7 @@ export default function PricingPage() {
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Уникальный логотип</span>
+                    <span className="ml-3 text-gray-700">Генерация уникального логотипа</span>
                   </li>
                   <li className="flex items-start">
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -115,19 +115,19 @@ export default function PricingPage() {
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Руководство по использованию</span>
+                    <span className="ml-3 text-gray-700">Руководство по использованию брендинга</span>
                   </li>
                   <li className="flex items-start">
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Примеры применения бренда</span>
+                    <span className="ml-3 text-gray-700">Примеры применения бренда(макеты и шаблоны)</span>
                   </li>
                   <li className="flex items-start">
                     <svg className="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="ml-3 text-gray-700">Скачивание в ZIP</span>
+                    <span className="ml-3 text-gray-700">Скачивание в SVG и PNG, без вотермарки, в высоком разрешении</span>
                   </li>
                 </ul>
               </div>
