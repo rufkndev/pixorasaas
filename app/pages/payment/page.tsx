@@ -109,7 +109,7 @@ function PaymentContent() {
       
       if (product === 'logo') {
         // Обработка оплаты логотипа
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/purchase-logo`;
+        const apiUrl = `/api/purchase-logo`;
         
         const response = await fetch(apiUrl, {
           method: 'POST',

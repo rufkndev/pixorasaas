@@ -6,6 +6,7 @@ import './loadEnv';
 // Импорт необходимых библиотек и модулей
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
 // Импорт маршрутов
@@ -25,6 +26,10 @@ app.use(cors({
   origin: '*',
   credentials: true
 }));
+
+// Статическая раздача сгенерированных логотипов
+const publicDir = path.join(__dirname, '..', 'public');
+app.use('/generated-logos', express.static(path.join(publicDir, 'generated-logos')));
 
 // Supabase client
 let supabaseInstance: any = null;

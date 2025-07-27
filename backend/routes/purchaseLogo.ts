@@ -19,9 +19,6 @@ router.post('/purchase-logo', async (req: any, res: any) => {
 
     const supabase = getSupabaseClient();
 
-    // Создаем чистый логотип без вотермарки
-    const cleanLogoUrl = await logoService.generateCleanLogo(name, keywords);
-
     // Ищем существующий логотип с таким же URL
     const { data: existingLogo, error: findError } = await supabase
       .from('generated_logos')
@@ -41,12 +38,12 @@ router.post('/purchase-logo', async (req: any, res: any) => {
     let logoData;
 
     if (existingLogo) {
-      // Обновляем существующий логотип
+      // Обновляем существующий логотип (НЕ генерируем новый!)
+      // logo_url остается тот же самый, что видел пользователь
+      // Вотермарка убирается на фронтенде после оплаты
       const { data: updatedLogo, error: updateError } = await supabase
         .from('generated_logos')
         .update({
-          logo_url: cleanLogoUrl, // Обновляем на версию без вотермарки
-          original_logo_url: logoUrl, // Сохраняем оригинальный URL с вотермаркой
           is_paid: true,
           order_id: orderId,
           payment_method: paymentMethod,
@@ -69,14 +66,14 @@ router.post('/purchase-logo', async (req: any, res: any) => {
       logoData = updatedLogo;
     } else {
       // Создаем новый логотип (если по какой-то причине не нашли существующий)
+      // В этом случае пользователь платит за логотип, который уже сгенерирован  
       const { data: newLogo, error: insertError } = await supabase
         .from('generated_logos')
         .insert({
           user_id: userId,
           name: name,
           keywords: keywords,
-          logo_url: cleanLogoUrl,
-          original_logo_url: logoUrl,
+          logo_url: logoUrl, // Используем тот же URL, что передал пользователь
           is_paid: true,
           order_id: orderId,
           payment_method: paymentMethod,
@@ -105,7 +102,7 @@ router.post('/purchase-logo', async (req: any, res: any) => {
       success: true,
       message: 'Logo purchased successfully',
       logoId: logoData.id,
-      cleanLogoUrl: cleanLogoUrl,
+      logoUrl: logoData.logo_url,
       orderId: orderId
     });
 

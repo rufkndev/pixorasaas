@@ -127,29 +127,66 @@ export default function Dashboard() {
   // Функция для скачивания файла
   const downloadFile = async (url: string, filename: string) => {
     try {
-      // Получаем файл как Blob
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Не удалось загрузить файл: ${response.statusText}`);
+      // Проверяем, является ли URL локальным файлом
+      const isLocalFile = url.startsWith('/generated-logos/') || url.startsWith('./') || url.startsWith('../');
+      
+      if (isLocalFile) {
+        // Для локальных файлов добавляем базовый URL если нужно
+        const fullUrl = url.startsWith('/') ? url : `/${url}`;
+        
+        // Получаем файл как Blob
+        const response = await fetch(fullUrl);
+        if (!response.ok) {
+          throw new Error(`Не удалось загрузить файл: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        
+        // Создаем временную ссылку для скачивания
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = filename;
+        
+        // Имитируем клик для начала скачивания
+        document.body.appendChild(link);
+        link.click();
+        
+        // Очищаемся
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
+      } else {
+        // Для внешних URL (например, с Yandex Cloud) используем прямую ссылку
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Не удалось загрузить файл: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        
+        // Создаем временную ссылку для скачивания
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = filename;
+        
+        // Имитируем клик для начала скачивания
+        document.body.appendChild(link);
+        link.click();
+        
+        // Очищаемся
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(link.href);
       }
-      const blob = await response.blob();
-      
-      // Создаем временную ссылку для скачивания
-      const link = document.createElement('a');
-      link.href = window.URL.createObjectURL(blob);
-      link.download = filename;
-      
-      // Имитируем клик для начала скачивания
-      document.body.appendChild(link);
-      link.click();
-      
-      // Очищаем
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(link.href);
     } catch (error) {
       console.error('Ошибка при скачивании файла:', error);
-      // В случае ошибки, просто откроем в новой вкладке как раньше
-      window.open(url, '_blank');
+      
+      // Показываем пользователю уведомление об ошибке
+      alert(`Не удалось скачать файл: ${filename}. Попробуйте открыть в новой вкладке.`);
+      
+      // В случае ошибки, просто откроем в новой вкладке как fallback
+      try {
+        window.open(url, '_blank');
+      } catch (openError) {
+        console.error('Не удалось открыть файл в новой вкладке:', openError);
+        alert('Не удалось открыть файл. Пожалуйста, обратитесь в поддержку.');
+      }
     }
   };
 
@@ -267,6 +304,11 @@ export default function Dashboard() {
                           alt={logo.name}
                           fill
                           className="object-contain p-4"
+                          onError={(e) => {
+                            // Fallback к плейсхолдеру, если изображение не загружается
+                            console.warn(`Failed to load logo image: ${logo.logo_url}`);
+                            (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
+                          }}
                         />
                         {/* Вотермарка для неоплаченных логотипов */}
                         {!logo.is_paid && (
@@ -298,7 +340,7 @@ export default function Dashboard() {
                             </button>
                           ) : (
                             <button 
-                              onClick={() => downloadFile(logo.original_logo_url!, `${logo.name.replace(/\s+/g, '_')}_logo.png`)}
+                              onClick={() => downloadFile(logo.logo_url, `${logo.name.replace(/\s+/g, '_')}_logo.png`)}
                               className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
                             >
                               Скачать
@@ -353,6 +395,11 @@ export default function Dashboard() {
                           alt={brandbook.business_name}
                           fill
                           className="object-contain p-4"
+                          onError={(e) => {
+                            // Fallback к плейсхолдеру, если изображение не загружается
+                            console.warn(`Failed to load brandbook logo image: ${brandbook.original_logo_url}`);
+                            (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
+                          }}
                         />
                       </div>
                       <div className="p-4">
