@@ -5,7 +5,7 @@ import { config } from 'dotenv';
 import path from 'path';
 
 // Загружаем переменные окружения из корня проекта
-config({ path: path.join(__dirname, '../.env.local') });
+config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Импорт необходимых библиотек и модулей
 import express from 'express';
