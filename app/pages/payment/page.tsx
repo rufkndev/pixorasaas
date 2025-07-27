@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
+import React from 'react';
 
 function PaymentContent() {
   const router = useRouter();
@@ -120,7 +121,7 @@ function PaymentContent() {
             name,
             keywords,
             logoUrl,
-            userId: user.id,
+            userId: user?.id,
             paymentMethod,
             email,
             phone,
@@ -138,7 +139,7 @@ function PaymentContent() {
         
       } else if (product === 'brandbook') {
         // Обработка оплаты брендбука 
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/create-full-brandbook`;
+        const apiUrl = `/api/create-full-brandbook`;
         
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -151,7 +152,7 @@ function PaymentContent() {
             keywords,
             logoUrl,
             slogan,
-            userId: user.id,
+            userId: user?.id,
             industry,
             brandStyle,
           }),
@@ -164,7 +165,7 @@ function PaymentContent() {
         }
         
         // Перенаправляем на страницу с готовым брендбуком
-        router.push(`/pages/brandbook?orderId=${orderId}&userId=${user.id}&product=${product}`);
+        router.push(`/pages/brandbook?orderId=${orderId}&userId=${user?.id}&product=${product}`);
       }
       
     } catch (err: any) {
