@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "strict": false,
     "noEmit": false,
+    "outDir": "./dist",
     "incremental": true,
     "module": "commonjs",
     "esModuleInterop": true,
