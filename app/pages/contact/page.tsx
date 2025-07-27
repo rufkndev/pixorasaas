@@ -5,7 +5,7 @@
  * контактную информацию и часто задаваемые вопросы.*/
 
 "use client";
-
+import React from 'react';
 import { useState } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
@@ -28,7 +28,7 @@ export default function ContactPage() {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:3001/api/send-contact', {
+      const response = await axios.post('/api/send-contact', {
         name,
         email,
         message
