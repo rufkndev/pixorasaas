@@ -143,7 +143,7 @@ function BrandbookContent() {
 
   // Функция скачивания файлов
   const downloadFile = (type: string) => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = 'https://pixora-labs.ru';
     
     // Разделяем тип и параметры запроса
     const [endpoint, queryParams] = type.split('?');
