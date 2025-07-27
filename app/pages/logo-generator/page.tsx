@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
+import React from 'react';
 
 // Компонент страницы генерации логотипа
 function LogoGeneratorContent() {
@@ -44,7 +45,7 @@ function LogoGeneratorContent() {
     
     try {
       // Вызов API для генерации логотипа
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-logo`;
+      const apiUrl = `/api/generate-logo`;
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -54,7 +55,7 @@ function LogoGeneratorContent() {
         body: JSON.stringify({
           name,
           keywords,
-          userId: user.id,
+          userId: user?.id,
           industry,
           selectedName: name
         }),

@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
+import React from 'react';
 
 // Стили для иконок
 const iconStyles = `
@@ -83,7 +84,7 @@ function BrandbookContent() {
     
     try {
       // Загружаем данные брендбука из API
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/brandbook/${orderId}?userId=${userId}`;
+      const apiUrl = `/api/brandbook/${orderId}?userId=${userId}`;
       
       const response = await fetch(apiUrl);
       const data = await response.json();

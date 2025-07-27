@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
+import React from 'react';
 
 // Компонент страницы генерации брендбука
 function BrandbookGeneratorContent() {
@@ -49,7 +50,7 @@ function BrandbookGeneratorContent() {
     
     try {
       // Вызов API для генерации брендбука
-      const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/generate-brandbook`;
+      const apiUrl = `/api/generate-brandbook`;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
