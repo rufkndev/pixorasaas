@@ -225,6 +225,7 @@ function BrandbookContent() {
                   width={80}
                   height={80}
                   className="rounded-lg bg-white p-2"
+                  unoptimized
                 />
               </div>
               <h1 className="text-4xl font-bold mb-4">
@@ -320,6 +321,7 @@ function BrandbookContent() {
                               width={150}
                               height={150}
                               className="max-h-32 max-w-full object-contain"
+                              unoptimized
                             />
                           </div>
                           <div className="p-6">
