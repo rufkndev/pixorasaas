@@ -1,11 +1,7 @@
 //Express.js Backend Server for Pixora
 
-// Загрузка переменных окружения В ПЕРВУЮ ОЧЕРЕДЬ!
-import { config } from 'dotenv';
-import path from 'path';
-
-// Загружаем переменные окружения из корня проекта
-config({ path: path.resolve(process.cwd(), '.env.local') });
+// Загружаем переменные окружения
+import './loadEnv';
 
 // Импорт необходимых библиотек и модулей
 import express from 'express';
