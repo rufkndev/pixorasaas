@@ -276,6 +276,7 @@ function BrandbookGeneratorContent() {
                                   width={120}
                                   height={120}
                                   className="max-h-24 max-w-full object-contain"
+                                  unoptimized
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                   <div className="text-gray-400 font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '1.5rem' }}>
