@@ -16,10 +16,7 @@ router.post('/yookassa/test-payment', async (req: any, res: any) => {
       amount: 100,
       description: 'Тестовый платеж',
       returnUrl: 'https://www.pixora-labs.ru/pages/payment/success?test=true',
-      customerEmail: 'test@example.com',
-      metadata: {
-        test: 'true'
-      }
+      customerEmail: 'test@example.com'
     });
 
     return res.status(201).json({

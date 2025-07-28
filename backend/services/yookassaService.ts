@@ -146,7 +146,7 @@ class YookassaService {
 
     const requestBody: CreatePaymentRequest = {
       amount: {
-        value: params.amount.toFixed(2),
+        value: Number(params.amount).toFixed(2),
         currency: params.currency || 'RUB'
       },
       capture: true,
@@ -158,53 +158,21 @@ class YookassaService {
       metadata: Object.keys(cleanMetadata).length > 0 ? cleanMetadata : undefined
     };
 
-    // Добавляем чек для соблюдения 54-ФЗ (обязательно для России)
+    // Добавляем чек для соблюдения 54-ФЗ согласно документации ЮKassa
     if (params.customerEmail) {
-      // Определяем описание товара для чека
-      let itemDescription = params.description || 'Цифровая услуга';
-      
-      // Если в метаданных есть информация о продукте, используем её
-      if (params.metadata?.productType === 'logo') {
-        itemDescription = `Логотип "${params.metadata.name || 'без названия'}"`;
-      } else if (params.metadata?.productType === 'brandbook') {
-        itemDescription = `Брендбук "${params.metadata.name || 'без названия'}"`;
-      }
-
-      // Подготавливаем данные клиента для чека
-      const customer: any = {
-        email: params.customerEmail
-      };
-
-      // Добавляем телефон только если он валидный
-      if (params.customerPhone && typeof params.customerPhone === 'string') {
-        // Очищаем телефон от лишних символов
-        let cleanPhone = params.customerPhone.replace(/[^\d+]/g, '');
-        
-        // Проверяем что телефон начинается с + или цифры и имеет правильную длину
-        if (cleanPhone.match(/^(\+7|7|8)\d{10}$/)) {
-          // Приводим к стандартному формату +7XXXXXXXXXX
-          if (cleanPhone.startsWith('8')) {
-            cleanPhone = '+7' + cleanPhone.slice(1);
-          } else if (cleanPhone.startsWith('7') && cleanPhone.length === 11) {
-            cleanPhone = '+' + cleanPhone;
-          } else if (!cleanPhone.startsWith('+')) {
-            cleanPhone = '+' + cleanPhone;
-          }
-          customer.phone = cleanPhone;
-        }
-      }
-
       requestBody.receipt = {
-        customer: customer,
+        customer: {
+          email: params.customerEmail
+        },
         items: [
           {
-            description: itemDescription,
+            description: params.description || 'Цифровая услуга',
             quantity: '1.00',
             amount: {
-              value: params.amount.toFixed(2),
-              currency: params.currency || 'RUB'
+              value: Number(params.amount).toFixed(2),
+              currency: 'RUB'
             },
-            vat_code: 4 // НДС не облагается (цифровые услуги)
+            vat_code: 1
           }
         ]
       };
