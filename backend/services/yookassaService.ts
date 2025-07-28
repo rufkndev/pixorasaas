@@ -87,8 +87,48 @@ class YookassaService {
     customerEmail?: string;
     customerPhone?: string;
   }): Promise<YookassaPayment> {
+    // Валидация входных параметров
+    if (!params.amount || params.amount <= 0) {
+      throw new Error('Некорректная сумма платежа');
+    }
+
+    if (!params.returnUrl || !params.returnUrl.startsWith('http')) {
+      throw new Error('Некорректный URL возврата');
+    }
+
+    // Проверяем, что URL возврата не слишком длинный
+    if (params.returnUrl.length > 2048) {
+      throw new Error('URL возврата слишком длинный');
+    }
+
     const idempotenceKey = uuidv4();
     
+    // Проверяем и обрезаем description до 128 символов (ограничение ЮKassa)
+    let description = params.description || 'Цифровая услуга';
+    if (description.length > 128) {
+      description = description.substring(0, 125) + '...';
+    }
+
+    // Проверяем и очищаем метаданные (убираем слишком длинные значения)
+    let cleanMetadata: Record<string, any> = {};
+    if (params.metadata) {
+      for (const [key, value] of Object.entries(params.metadata)) {
+        if (typeof value === 'string' && value.length > 512) {
+          cleanMetadata[key] = value.substring(0, 509) + '...';
+        } else if (typeof value === 'object' && value !== null) {
+          // Сериализуем объекты для безопасности
+          const serialized = JSON.stringify(value);
+          if (serialized.length > 512) {
+            cleanMetadata[key] = serialized.substring(0, 509) + '...';
+          } else {
+            cleanMetadata[key] = value;
+          }
+        } else {
+          cleanMetadata[key] = value;
+        }
+      }
+    }
+
     const requestBody: CreatePaymentRequest = {
       amount: {
         value: params.amount.toFixed(2),
@@ -99,8 +139,8 @@ class YookassaService {
         type: 'redirect',
         return_url: params.returnUrl
       },
-      description: params.description,
-      metadata: params.metadata
+      description: description,
+      metadata: Object.keys(cleanMetadata).length > 0 ? cleanMetadata : undefined
     };
 
     // Добавляем чек для соблюдения 54-ФЗ (обязательно для России)
@@ -135,6 +175,14 @@ class YookassaService {
     }
 
     try {
+      console.log('Creating YooKassa payment with data:', {
+        amount: requestBody.amount,
+        description: requestBody.description,
+        return_url: requestBody.confirmation.return_url,
+        has_receipt: !!requestBody.receipt,
+        metadata_keys: requestBody.metadata ? Object.keys(requestBody.metadata) : []
+      });
+
       const response = await fetch(`${this.baseUrl}/payments`, {
         method: 'POST',
         headers: {
@@ -147,7 +195,13 @@ class YookassaService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`ЮKassa API error: ${errorData.description || response.statusText}`);
+        console.error('YooKassa API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          requestBody: JSON.stringify(requestBody, null, 2)
+        });
+        throw new Error(`ЮKassa API error: ${errorData.description || errorData.detail || response.statusText}`);
       }
 
       const payment: YookassaPayment = await response.json();
