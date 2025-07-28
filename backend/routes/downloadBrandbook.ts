@@ -109,6 +109,18 @@ router.get('/download-logo-variants/:orderId', async (req, res) => {
       .eq('user_id', userId)
       .single();
 
+    if (error || !brandbook) {
+      return res.status(404).json({ error: 'Brandbook not found' });
+    }
+
+    // Проверяем статус оплаты
+    if (brandbook.payment_status !== 'completed' && !brandbook.is_demo) {
+      return res.status(403).json({ 
+        error: 'Payment required',
+        message: 'Для скачивания требуется оплата брендбука'
+      });
+    }
+
     // Создаем ZIP архив
     const archive = archiver('zip', {
       zlib: { level: 9 }
@@ -159,6 +171,18 @@ router.get('/download-icons/:orderId', async (req, res) => {
       .eq('order_id', orderId)
       .eq('user_id', userId)
       .single();
+
+    if (error || !brandbook) {
+      return res.status(404).json({ error: 'Brandbook not found' });
+    }
+
+    // Проверяем статус оплаты
+    if (brandbook.payment_status !== 'completed' && !brandbook.is_demo) {
+      return res.status(403).json({ 
+        error: 'Payment required',
+        message: 'Для скачивания требуется оплата брендбука'
+      });
+    }
 
     // Создаем ZIP архив
     const archive = archiver('zip', {
@@ -238,6 +262,18 @@ router.get('/download-applications/:orderId', async (req, res) => {
       .eq('order_id', orderId)
       .eq('user_id', userId)
       .single();
+
+    if (error || !brandbook) {
+      return res.status(404).json({ error: 'Brandbook not found' });
+    }
+
+    // Проверяем статус оплаты
+    if (brandbook.payment_status !== 'completed' && !brandbook.is_demo) {
+      return res.status(403).json({ 
+        error: 'Payment required',
+        message: 'Для скачивания требуется оплата брендбука'
+      });
+    }
 
     // Создаем ZIP архив
     const archive = archiver('zip', {

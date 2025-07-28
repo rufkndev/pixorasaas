@@ -100,73 +100,49 @@ function PaymentContent() {
     setError('');
     
     try {
-      // Здесь будет интеграция с системой оплаты (например, Stripe, YooKassa)
-      // Пока делаем имитацию
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Генерируем уникальный ID заказа
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      if (product === 'logo') {
-        // Обработка оплаты логотипа
-        const apiUrl = `/api/purchase-logo`;
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId,
-            name,
-            keywords,
-            logoUrl,
-            userId: user?.id,
+      // Подготавливаем данные для оплаты
+      const productData = {
+        userId: user?.id,
+        name,
+        keywords,
+        logoUrl,
+        email,
+        phone,
+        ...(product === 'brandbook' && { 
+          slogan, 
+          industry, 
+          brandStyle 
+        })
+      };
+
+      // Создаем платеж в ЮKassa
+      const createPaymentResponse = await fetch('/api/yookassa/create-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: currentProduct.price,
+          description: `Оплата ${currentProduct.title} для "${name}"`,
+          returnUrl: `${window.location.origin}/pages/payment/success?product=${product}&userId=${user?.id}`,
+          productType: product,
+          productData: productData,
+          metadata: {
             paymentMethod,
-            email,
-            phone,
-          }),
-        });
-        
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(responseData.error || 'Ошибка при обработке оплаты логотипа');
-        }
-        
-        // Перенаправляем в дашборд
-        router.push('/pages/dashboard');
-        
-      } else if (product === 'brandbook') {
-        // Обработка оплаты брендбука 
-        const apiUrl = `/api/create-full-brandbook`;
-        
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId,
-            name,
-            keywords,
-            logoUrl,
-            slogan,
-            userId: user?.id,
-            industry,
-            brandStyle,
-          }),
-        });
-        
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(responseData.error || 'Ошибка при создании брендбука');
-        }
-        
-        // Перенаправляем на страницу с готовым брендбуком
-        router.push(`/pages/brandbook?orderId=${orderId}&userId=${user?.id}&product=${product}`);
+            userEmail: email,
+            userPhone: phone
+          }
+        }),
+      });
+
+      const paymentResult = await createPaymentResponse.json();
+      
+      if (!createPaymentResponse.ok) {
+        throw new Error(paymentResult.message || 'Ошибка при создании платежа');
       }
+
+      // Перенаправляем пользователя на страницу оплаты ЮKassa
+      window.location.href = paymentResult.payment.confirmation_url;
       
     } catch (err: any) {
       console.error('Payment error:', err);
