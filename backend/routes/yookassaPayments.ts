@@ -6,6 +6,41 @@ import { brandbookService } from '../services/brandbookServices';
 
 const router = Router();
 
+// Тестовый роут для диагностики проблем с ЮKassa
+router.post('/yookassa/test-payment', async (req: any, res: any) => {
+  try {
+    console.log('Testing YooKassa with minimal data...');
+    
+    // Минимальный тестовый платеж
+    const payment = await yookassaService.createPayment({
+      amount: 100,
+      description: 'Тестовый платеж',
+      returnUrl: 'https://www.pixora-labs.ru/pages/payment/success?test=true',
+      customerEmail: 'test@example.com',
+      metadata: {
+        test: 'true'
+      }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Test payment created successfully',
+      payment: {
+        id: payment.id,
+        status: payment.status,
+        confirmation_url: payment.confirmation.confirmation_url
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Test payment failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Создание платежа
 router.post('/yookassa/create-payment', async (req: any, res: any) => {
   try {
@@ -54,7 +89,7 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
       });
     }
 
-    // Создаем платеж в ЮKassa
+    // Создаем платеж в ЮKassa с минимальными метаданными
     const payment = await yookassaService.createPayment({
       amount: amount,
       description: description || `Оплата ${productType === 'logo' ? 'логотипа' : 'брендбука'}`,
@@ -62,9 +97,10 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
       customerEmail: productData.email,
       customerPhone: productData.phone,
       metadata: {
-        productType,
-        ...productData,
-        ...metadata
+        productType: productType,
+        userId: productData.userId,
+        name: productData.name,
+        orderId: `order_${Date.now()}`
       }
     });
 

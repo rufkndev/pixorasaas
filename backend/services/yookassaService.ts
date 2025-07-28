@@ -73,6 +73,21 @@ class YookassaService {
     if (!this.shopId || !this.secretKey) {
       throw new Error('ЮKassa credentials not found in environment variables');
     }
+
+    // Проверяем формат учетных данных
+    if (this.shopId.length < 6 || this.secretKey.length < 30) {
+      console.warn('YooKassa credentials may be invalid:', {
+        shopIdLength: this.shopId.length,
+        secretKeyLength: this.secretKey.length,
+        shopIdStart: this.shopId.substring(0, 3) + '...'
+      });
+    }
+
+    console.log('YooKassa service initialized:', {
+      baseUrl: this.baseUrl,
+      shopIdMasked: this.shopId.substring(0, 3) + '***' + this.shopId.slice(-3),
+      isTest: this.isTest
+    });
   }
 
   /**
@@ -144,7 +159,7 @@ class YookassaService {
     };
 
     // Добавляем чек для соблюдения 54-ФЗ (обязательно для России)
-    if (params.customerEmail || params.customerPhone) {
+    if (params.customerEmail) {
       // Определяем описание товара для чека
       let itemDescription = params.description || 'Цифровая услуга';
       
@@ -155,11 +170,32 @@ class YookassaService {
         itemDescription = `Брендбук "${params.metadata.name || 'без названия'}"`;
       }
 
+      // Подготавливаем данные клиента для чека
+      const customer: any = {
+        email: params.customerEmail
+      };
+
+      // Добавляем телефон только если он валидный
+      if (params.customerPhone && typeof params.customerPhone === 'string') {
+        // Очищаем телефон от лишних символов
+        let cleanPhone = params.customerPhone.replace(/[^\d+]/g, '');
+        
+        // Проверяем что телефон начинается с + или цифры и имеет правильную длину
+        if (cleanPhone.match(/^(\+7|7|8)\d{10}$/)) {
+          // Приводим к стандартному формату +7XXXXXXXXXX
+          if (cleanPhone.startsWith('8')) {
+            cleanPhone = '+7' + cleanPhone.slice(1);
+          } else if (cleanPhone.startsWith('7') && cleanPhone.length === 11) {
+            cleanPhone = '+' + cleanPhone;
+          } else if (!cleanPhone.startsWith('+')) {
+            cleanPhone = '+' + cleanPhone;
+          }
+          customer.phone = cleanPhone;
+        }
+      }
+
       requestBody.receipt = {
-        customer: {
-          email: params.customerEmail,
-          phone: params.customerPhone
-        },
+        customer: customer,
         items: [
           {
             description: itemDescription,
@@ -182,6 +218,9 @@ class YookassaService {
         has_receipt: !!requestBody.receipt,
         metadata_keys: requestBody.metadata ? Object.keys(requestBody.metadata) : []
       });
+      
+      console.log('Full request body to YooKassa:');
+      console.log(JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(`${this.baseUrl}/payments`, {
         method: 'POST',
@@ -195,12 +234,11 @@ class YookassaService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('YooKassa API error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-          requestBody: JSON.stringify(requestBody, null, 2)
-        });
+        console.error('YooKassa API error details:');
+        console.error('Status:', response.status);
+        console.error('Status Text:', response.statusText);
+        console.error('Error response:', JSON.stringify(errorData, null, 2));
+        console.error('Request that caused error:', JSON.stringify(requestBody, null, 2));
         throw new Error(`ЮKassa API error: ${errorData.description || errorData.detail || response.statusText}`);
       }
 
