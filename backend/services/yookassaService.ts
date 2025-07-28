@@ -49,6 +49,7 @@ export interface CreatePaymentRequest {
       };
       vat_code: number;
       payment_subject: string;
+      payment_mode: string;
     }>;
   };
 }
@@ -174,7 +175,8 @@ class YookassaService {
               currency: 'RUB'
             },
             vat_code: 1,
-            payment_subject: 'service'
+            payment_subject: 'service',
+            payment_mode: 'full_payment'
           }
         ]
       };
