@@ -95,6 +95,11 @@ function PaymentContent() {
       setError('Необходимо согласиться с условиями использования');
       return;
     }
+
+    if (!email || !email.trim()) {
+      setError('Email обязателен для формирования чека');
+      return;
+    }
     
     setIsProcessing(true);
     setError('');
@@ -273,7 +278,10 @@ function PaymentContent() {
                         
                         <div>
                           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Email для отправки {product === 'logo' ? 'логотипа' : 'брендбука'}
+                            Email для отправки {product === 'logo' ? 'логотипа' : 'брендбука'} *
+                            <span className="text-xs text-gray-500 block mt-1">
+                              Обязательно для формирования чека (54-ФЗ)
+                            </span>
                           </label>
                           <input
                             type="email"

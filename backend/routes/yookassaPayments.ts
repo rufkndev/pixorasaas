@@ -47,11 +47,20 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
       });
     }
 
+    if (!productData.email) {
+      return res.status(400).json({ 
+        error: 'Missing email',
+        message: 'Customer email is required for receipt generation (54-ФЗ compliance)'
+      });
+    }
+
     // Создаем платеж в ЮKassa
     const payment = await yookassaService.createPayment({
       amount: amount,
       description: description || `Оплата ${productType === 'logo' ? 'логотипа' : 'брендбука'}`,
       returnUrl: returnUrl,
+      customerEmail: productData.email,
+      customerPhone: productData.phone,
       metadata: {
         productType,
         ...productData,

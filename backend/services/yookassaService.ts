@@ -35,6 +35,21 @@ export interface CreatePaymentRequest {
   };
   description?: string;
   metadata?: Record<string, any>;
+  receipt?: {
+    customer: {
+      email?: string;
+      phone?: string;
+    };
+    items: Array<{
+      description: string;
+      quantity: string;
+      amount: {
+        value: string;
+        currency: string;
+      };
+      vat_code: number;
+    }>;
+  };
 }
 
 export interface YookassaWebhook {
@@ -69,6 +84,8 @@ class YookassaService {
     description?: string;
     returnUrl: string;
     metadata?: Record<string, any>;
+    customerEmail?: string;
+    customerPhone?: string;
   }): Promise<YookassaPayment> {
     const idempotenceKey = uuidv4();
     
@@ -85,6 +102,37 @@ class YookassaService {
       description: params.description,
       metadata: params.metadata
     };
+
+    // Добавляем чек для соблюдения 54-ФЗ (обязательно для России)
+    if (params.customerEmail || params.customerPhone) {
+      // Определяем описание товара для чека
+      let itemDescription = params.description || 'Цифровая услуга';
+      
+      // Если в метаданных есть информация о продукте, используем её
+      if (params.metadata?.productType === 'logo') {
+        itemDescription = `Логотип "${params.metadata.name || 'без названия'}"`;
+      } else if (params.metadata?.productType === 'brandbook') {
+        itemDescription = `Брендбук "${params.metadata.name || 'без названия'}"`;
+      }
+
+      requestBody.receipt = {
+        customer: {
+          email: params.customerEmail,
+          phone: params.customerPhone
+        },
+        items: [
+          {
+            description: itemDescription,
+            quantity: '1.00',
+            amount: {
+              value: params.amount.toFixed(2),
+              currency: params.currency || 'RUB'
+            },
+            vat_code: 4 // НДС не облагается (цифровые услуги)
+          }
+        ]
+      };
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}/payments`, {
