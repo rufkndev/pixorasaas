@@ -271,6 +271,7 @@ router.get('/user-brandbooks/:userId', async (req: any, res: any) => {
       .from('brandbooks')
       .select('*')
       .eq('user_id', userId)
+      .eq('status', 'completed') // Добавляем фильтр по статусу
       .order('created_at', { ascending: false });
     
     return res.status(200).json({ brandbooks: data || [] });
