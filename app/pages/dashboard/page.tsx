@@ -288,7 +288,7 @@ export default function Dashboard() {
                     Создайте свой первый логотип, чтобы он появился здесь.
                   </p>
                   <button
-                    onClick={() => router.push('/pages/logo-generator')}
+                    onClick={() => router.push('/logo-generator')}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     Создать логотип
@@ -379,7 +379,7 @@ export default function Dashboard() {
                     Создайте свой первый брендбук, чтобы он появился здесь.
                   </p>
                   <button
-                    onClick={() => router.push('/pages/brandbook-generator')}
+                    onClick={() => router.push('/#generator')}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     Создать брендбук
