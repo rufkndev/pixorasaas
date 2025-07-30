@@ -84,8 +84,8 @@ function BrandbookGeneratorContent() {
         throw new Error(data.error || 'Ошибка при создании полного брендбука');
       }
   
-      // Перенаправляем на страницу профиля, где будет доступен брендбук
-      router.push('/pages/profile');
+      // Перенаправляем на страницу созданного брендбука
+      router.push(`/pages/brandbook/${orderId}`);
   
     } catch (err: any) {
       setError(`Произошла ошибка: ${err.message}. Пожалуйста, свяжитесь с поддержкой.`);
