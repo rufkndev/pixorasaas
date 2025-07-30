@@ -166,20 +166,23 @@ export class BrandbookService {
       });
       
       // Возвращаем минимальный брендбук с базовыми данными в случае ошибки
+      // Исправлено: rgb как строка, а не объект
       const fallbackBrandbook: Partial<Brandbook> = {
         slogan: existingSlogan || `${name} - Ваш надежный партнер`,
         colors: [{
           name: 'Primary',
           hex: '#2563eb',
-          rgb: { r: 37, g: 99, b: 235 },
+          rgb: 'rgb(37, 99, 235)',
           usage: 'Основной цвет бренда'
         }],
         fonts: [{
           name: 'Inter',
+          type: 'google',
+          url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
           category: 'sans-serif',
-          usage: 'Основной шрифт',
+          family: 'Inter, Arial, sans-serif',
           weights: ['400', '500', '600', '700'],
-          fallback: 'Arial, sans-serif'
+          googleFontUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
         }],
         icons: [],
         logoVariants: [],
