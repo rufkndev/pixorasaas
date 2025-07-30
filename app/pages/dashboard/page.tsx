@@ -36,8 +36,10 @@ interface Brandbook {
   applications: any;
   status: string;
   payment_status: string;
+  payment_id?: string;
   is_demo: boolean;
   created_at: string;
+  error_message?: string;
 }
 
 // Типы для активных вкладок
@@ -122,6 +124,54 @@ export default function Dashboard() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Функция для повторной попытки создания брендбука
+  const retryBrandbookCreation = async (paymentId: string) => {
+    if (!user || !paymentId) return;
+
+    try {
+      // Показываем индикатор загрузки
+      setBrandbooks(prev => prev.map(bb => 
+        bb.payment_id === paymentId 
+          ? { ...bb, status: 'processing' }
+          : bb
+      ));
+
+      const response = await fetch(`/api/yookassa/retry-brandbook/${paymentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Ошибка при повторной попытке создания брендбука');
+      }
+
+      console.log('Brandbook retry initiated:', result);
+      
+      // Обновляем список брендбуков
+      setTimeout(() => {
+        fetchUserBrandbooks();
+      }, 2000);
+
+      alert('Повторная попытка создания брендбука запущена. Обновите страницу через несколько минут.');
+
+    } catch (error: any) {
+      console.error('Error retrying brandbook creation:', error);
+      alert(`Ошибка: ${error.message}`);
+      
+      // Возвращаем статус обратно к failed
+      setBrandbooks(prev => prev.map(bb => 
+        bb.payment_id === paymentId 
+          ? { ...bb, status: 'failed' }
+          : bb
+      ));
+    }
   };
 
   // Функция для скачивания файла
@@ -288,7 +338,7 @@ export default function Dashboard() {
                     Создайте свой первый логотип, чтобы он появился здесь.
                   </p>
                   <button
-                    onClick={() => router.push('/logo-generator')}
+                    onClick={() => router.push('/#generator')}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     Создать логотип
@@ -407,26 +457,67 @@ export default function Dashboard() {
                           <h3 className="text-lg font-semibold text-gray-900">
                             {brandbook.business_name}
                           </h3>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            brandbook.is_demo 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {brandbook.is_demo ? 'Демо' : 'Полный'}
-                          </span>
+                          <div className="flex space-x-2">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              brandbook.is_demo 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {brandbook.is_demo ? 'Демо' : 'Полный'}
+                            </span>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              brandbook.status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : brandbook.status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : brandbook.status === 'processing'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {brandbook.status === 'completed' ? 'Готов' :
+                               brandbook.status === 'failed' ? 'Ошибка' :
+                               brandbook.status === 'processing' ? 'Обработка' : 'Неизвестно'}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-sm text-gray-600 mb-2">
                           {brandbook.slogan}
                         </p>
+                        {brandbook.status === 'failed' && brandbook.error_message && (
+                          <p className="text-xs text-red-600 mb-2 bg-red-50 p-2 rounded">
+                            Ошибка: {brandbook.error_message}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-500 mb-3">
                           {formatDate(brandbook.created_at)}
                         </p>
-                        <button
-                          onClick={() => navigateToBrandbook(brandbook.order_id)}
-                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Открыть брендбук
-                        </button>
+                        {brandbook.status === 'completed' ? (
+                          <button
+                            onClick={() => navigateToBrandbook(brandbook.order_id)}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                          >
+                            Открыть брендбук
+                          </button>
+                        ) : brandbook.status === 'failed' ? (
+                          <button
+                            onClick={() => brandbook.payment_id && retryBrandbookCreation(brandbook.payment_id)}
+                            disabled={!brandbook.payment_id}
+                            className={`w-full py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                              brandbook.payment_id 
+                                ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                                : 'bg-gray-400 text-white cursor-not-allowed'
+                            }`}
+                          >
+                            {brandbook.payment_id ? 'Повторить создание' : 'ID платежа отсутствует'}
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            className="w-full bg-gray-400 text-white py-2 px-4 rounded-md text-sm font-medium cursor-not-allowed"
+                          >
+                            Обрабатывается...
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
