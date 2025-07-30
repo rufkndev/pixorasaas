@@ -20,6 +20,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Pixora - AI генератор названий, логотипов и брендбуков',
   description: 'Создайте уникальный бренд для вашего бизнеса с помощью искусственного интеллекта. Генерация названий, логотипов и брендбуков.',
+  icons: {
+    icon: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({
