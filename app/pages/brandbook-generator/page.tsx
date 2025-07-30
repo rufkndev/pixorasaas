@@ -161,19 +161,15 @@ function BrandbookGeneratorContent() {
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Основной логотип</h2>
                     <div className="bg-gray-50 rounded-lg p-8 flex items-center justify-center min-h-[400px]">
-                      <div className="relative">
-                        <Image
+                      <div className="relative w-full max-w-sm">
+                        <LogoImage
                           src={logoUrl}
                           alt={`Логотип ${name}`}
                           width={400}
                           height={400}
                           className="max-h-80 max-w-full object-contain"
+                          showWatermark={true}
                         />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '5rem' }}>
-                            Pixora
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>

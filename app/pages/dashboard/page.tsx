@@ -8,6 +8,7 @@ import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import LogoImage from '../../components/LogoImage';
 
 // Интерфейсы для типизации данных
 interface GeneratedLogo {
@@ -349,25 +350,13 @@ export default function Dashboard() {
                   {logos.map((logo) => (
                     <div key={logo.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="aspect-square bg-gray-100 relative">
-                        <Image
+                        <LogoImage
                           src={logo.logo_url}
                           alt={logo.name}
                           fill
                           className="object-contain p-4"
-                          onError={(e) => {
-                            // Fallback к плейсхолдеру, если изображение не загружается
-                            console.warn(`Failed to load logo image: ${logo.logo_url}`);
-                            (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
-                          }}
+                          showWatermark={!logo.is_paid}
                         />
-                        {/* Вотермарка для неоплаченных логотипов */}
-                        {!logo.is_paid && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '3rem' }}>
-                              PIXORA
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       <div className="p-4">
@@ -440,16 +429,11 @@ export default function Dashboard() {
                   {brandbooks.map((brandbook) => (
                     <div key={brandbook.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="aspect-square bg-gray-100 relative">
-                        <Image
+                        <LogoImage
                           src={brandbook.original_logo_url}
                           alt={brandbook.business_name}
                           fill
                           className="object-contain p-4"
-                          onError={(e) => {
-                            // Fallback к плейсхолдеру, если изображение не загружается
-                            console.warn(`Failed to load brandbook logo image: ${brandbook.original_logo_url}`);
-                            (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
-                          }}
                         />
                       </div>
                       <div className="p-4">

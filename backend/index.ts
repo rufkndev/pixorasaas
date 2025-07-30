@@ -30,8 +30,12 @@ app.use(cors({
 }));
 
 // Статическая раздача сгенерированных логотипов
-const publicDir = path.join(__dirname, '..', 'public');
+const publicDir = path.join(process.cwd(), 'public');
 app.use('/generated-logos', express.static(path.join(publicDir, 'generated-logos')));
+
+// Логирование для отладки
+console.log('Public directory:', publicDir);
+console.log('Generated logos directory:', path.join(publicDir, 'generated-logos'));
 
 // Supabase client
 let supabaseInstance: any = null;

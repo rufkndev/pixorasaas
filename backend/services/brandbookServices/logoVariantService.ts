@@ -311,7 +311,7 @@ export class LogoVariantService {
 
   // Сохранение буфера изображения в файл и возврат URL
   private async saveImageBuffer(buffer: Buffer, filename: string): Promise<string> {
-    const publicDir = path.join(process.cwd(), '..', 'public', 'generated-logos');
+    const publicDir = path.join(process.cwd(), 'public', 'generated-logos');
     
     // Создаем директорию если её нет
     if (!fs.existsSync(publicDir)) {

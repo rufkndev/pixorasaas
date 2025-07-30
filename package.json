@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "server": "ts-node-dev backend/index.ts",
+    "check-logos": "node check-logos.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
