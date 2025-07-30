@@ -88,7 +88,7 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
 
     // Создаем платеж в ЮKassa с минимальными метаданными
     const payment = await yookassaService.createPayment({
-      amount: 50, // Тестовая сумма
+      amount: amount,
       description: description || `Оплата ${productType === 'logo' ? 'логотипа' : 'брендбука'}`,
       returnUrl: returnUrl,
       customerEmail: productData.email,
