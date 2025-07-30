@@ -30,16 +30,8 @@ function PaymentSuccessContent() {
   useEffect(() => {
     if (!mounted || isAuthLoading) return;
 
-    // Проверяем авторизацию - делаем проверку более гибкой
-    if (!user) {
-      console.log('User not authenticated, redirecting to home');
-      router.push('/');
-      return;
-    }
-
-    // Сравниваем ID как строки для избежания проблем с типами
-    if (userId && String(user.id) !== String(userId)) {
-      console.log('User ID mismatch:', { userID: String(user.id), urlUserID: String(userId) });
+    // Проверяем авторизацию
+    if (!user || user.id !== userId) {
       router.push('/');
       return;
     }
@@ -69,54 +61,6 @@ function PaymentSuccessContent() {
     }
   }, [mounted, isAuthLoading, user, userId, product, paymentId]);
 
-  const checkBrandbookCreation = async (paymentId: string, attempt: number = 1) => {
-    try {
-      console.log(`Checking brandbook creation, attempt ${attempt}`);
-      
-      // Проверяем, создался ли брендбук для этого платежа
-      const response = await fetch(`/api/user-brandbooks/${userId}`);
-      const data = await response.json();
-      
-      if (data.brandbooks && data.brandbooks.length > 0) {
-        // Ищем брендбук с нашим payment_id
-        const brandbook = data.brandbooks.find((bb: any) => bb.payment_id === paymentId);
-        
-        if (brandbook && brandbook.status === 'completed') {
-          console.log('Brandbook created successfully:', brandbook);
-          // Перенаправляем к созданному брендбуку
-          router.push(`/pages/brandbook/${brandbook.order_id || brandbook.id}`);
-          return;
-        } else if (brandbook && brandbook.status === 'failed') {
-          console.error('Brandbook creation failed:', brandbook);
-          setError('Ошибка при создании брендбука. Попробуйте повторить в личном кабинете.');
-          return;
-        }
-      }
-      
-      // Если брендбук еще не создан и не превышен лимит попыток
-      if (attempt < 12) { // Максимум 12 попыток = 1 минута
-        setTimeout(() => {
-          checkBrandbookCreation(paymentId, attempt + 1);
-        }, 5000);
-      } else {
-        // Если брендбук не создался за разумное время, перенаправляем в дашборд
-        console.log('Brandbook creation taking too long, redirecting to dashboard');
-        router.push('/pages/dashboard');
-      }
-      
-    } catch (error: any) {
-      console.error('Error checking brandbook creation:', error);
-      if (attempt < 5) {
-        setTimeout(() => {
-          checkBrandbookCreation(paymentId, attempt + 1);
-        }, 5000);
-      } else {
-        // Если ошибки продолжаются, перенаправляем в дашборд
-        router.push('/pages/dashboard');
-      }
-    }
-  };
-
   const checkPaymentStatus = async (paymentId: string) => {
     try {
       const response = await fetch(`/api/yookassa/payment/${paymentId}?userId=${userId}`, {
@@ -137,17 +81,14 @@ function PaymentSuccessContent() {
       if (result.payment.status === 'succeeded' && result.payment.paid) {
         setPaymentStatus('success');
         
-        // Для брендбука ждем его создания, для логотипа сразу перенаправляем
-        if (product === 'logo') {
-          setTimeout(() => {
+        // Через несколько секунд перенаправляем пользователя
+        setTimeout(() => {
+          if (product === 'logo') {
             router.push('/pages/dashboard');
-          }, 3000);
-        } else if (product === 'brandbook') {
-          // Для брендбука ждем его создания дольше
-          setTimeout(() => {
-            checkBrandbookCreation(paymentId);
-          }, 5000);
-        }
+          } else if (product === 'brandbook') {
+            router.push('/pages/dashboard');
+          }
+        }, 3000);
       } else if (result.payment.status === 'canceled') {
         setPaymentStatus('failed');
         setError('Платеж был отменен');
@@ -217,11 +158,7 @@ function PaymentSuccessContent() {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Оплата прошла успешно!</h2>
             <p className="text-gray-600 mb-4">
-              {product === 'logo' ? (
-                'Спасибо за покупку! Логотип готов к скачиванию.'
-              ) : (
-                'Спасибо за покупку! Ваш брендбук создается. Это может занять 1-2 минуты.'
-              )}
+              Спасибо за покупку! Ваш {product === 'logo' ? 'логотип' : 'брендбук'} готовится.
             </p>
             {paymentInfo && (
               <div className="bg-gray-50 rounded-lg p-4 mb-4 max-w-md mx-auto">
@@ -231,11 +168,7 @@ function PaymentSuccessContent() {
               </div>
             )}
             <p className="text-sm text-gray-500 mb-4">
-              {product === 'logo' ? (
-                'Вы будете автоматически перенаправлены в личный кабинет через несколько секунд'
-              ) : (
-                'Вы будете автоматически перенаправлены к вашему брендбуку после его создания'
-              )}
+              Вы будете автоматически перенаправлены в личный кабинет через несколько секунд
             </p>
             <Link 
               href="/pages/dashboard" 

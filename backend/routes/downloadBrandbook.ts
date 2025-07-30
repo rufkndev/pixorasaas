@@ -134,7 +134,7 @@ router.get('/download-logo-variants/:orderId', async (req, res) => {
     // Добавляем вариации логотипов в архив
     for (const variant of brandbook.logo_variants || []) {
       try {
-        const logoPath = path.join(process.cwd(), 'public', variant.url);
+        const logoPath = path.join(process.cwd(), '..', 'public', variant.url);
         
         if (fs.existsSync(logoPath)) {
           const logoBuffer = fs.readFileSync(logoPath);

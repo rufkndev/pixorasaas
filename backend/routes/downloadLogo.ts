@@ -40,7 +40,7 @@ router.get('/download-logo/:logoId', async (req, res) => {
 
     // Получаем путь к файлу логотипа
     const logoPath = logo.logo_url.replace('/generated-logos/', '');
-    const fullLogoPath = path.join(process.cwd(), 'public', 'generated-logos', logoPath);
+    const fullLogoPath = path.join(process.cwd(), '..', 'public', 'generated-logos', logoPath);
 
     // Проверяем существование файла
     if (!fs.existsSync(fullLogoPath)) {

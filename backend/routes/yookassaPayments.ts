@@ -86,13 +86,9 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
       });
     }
 
-    // ВРЕМЕННО: устанавливаем цену 50 рублей для тестирования
-    const testAmount = 50;
-    console.log(`ТЕСТОВЫЙ РЕЖИМ: Заменяем цену ${amount} руб. на ${testAmount} руб.`);
-
     // Создаем платеж в ЮKassa с минимальными метаданными
     const payment = await yookassaService.createPayment({
-      amount: testAmount, // Используем тестовую цену вместо amount
+      amount: amount,
       description: description || `Оплата ${productType === 'logo' ? 'логотипа' : 'брендбука'}`,
       returnUrl: returnUrl,
       customerEmail: productData.email,
@@ -114,7 +110,7 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
         yookassa_payment_id: payment.id,
         user_id: productData.userId,
         product_type: productType,
-        amount: parseFloat(payment.amount.value), // Это уже тестовая сумма 50
+        amount: parseFloat(payment.amount.value),
         currency: payment.amount.currency,
         status: payment.status,
         product_data: productData,
@@ -364,36 +360,7 @@ async function processBrandbookPayment(paymentData: any) {
   const { user_id, product_data, yookassa_payment_id } = paymentData;
   const { name, keywords, logoUrl, slogan, industry, brandStyle, email } = product_data;
 
-  console.log(`Starting brandbook generation for payment ${yookassa_payment_id}:`, {
-    user_id,
-    name,
-    keywords,
-    logoUrl,
-    slogan,
-    industry,
-    brandStyle,
-    email
-  });
-
   try {
-    // Проверяем, не создан ли уже брендбук для этого платежа
-    const { data: existingBrandbook, error: checkError } = await supabase
-      .from('brandbooks')
-      .select('id, status')
-      .eq('payment_id', yookassa_payment_id)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing brandbook:', checkError);
-    }
-
-    if (existingBrandbook) {
-      console.log(`Brandbook already exists for payment ${yookassa_payment_id}, id: ${existingBrandbook.id}`);
-      return;
-    }
-
-    console.log(`Generating brandbook for payment ${yookassa_payment_id}...`);
-    
     // Генерируем полный брендбук
     const brandbook = await brandbookService.generateBrandbook(
       name, 
@@ -404,18 +371,12 @@ async function processBrandbookPayment(paymentData: any) {
       slogan
     );
     
-    console.log(`Brandbook generated successfully, saving to database...`);
-    
-    // Создаем уникальный order_id для брендбука
-    const orderId = `brandbook_${Date.now()}_${user_id}`;
-
     // Сохраняем в базу данных
     const { data: savedBrandbook, error: insertError } = await supabase
       .from('brandbooks')
       .insert({
         user_id: user_id,
         payment_id: yookassa_payment_id,
-        order_id: orderId, // Добавляем order_id
         business_name: name,
         keywords: keywords,
         slogan: slogan || brandbook.slogan || '',
@@ -435,14 +396,11 @@ async function processBrandbookPayment(paymentData: any) {
       .single();
 
     if (insertError) {
-      console.error('Database insert error for brandbook:', insertError);
-      throw new Error(`Failed to save brandbook to database: ${insertError.message}`);
+      throw insertError;
     }
 
-    console.log(`Brandbook saved successfully with id: ${savedBrandbook.id}`);
-
     // Обновляем статус логотипа на купленный
-    const { error: logoUpdateError } = await supabase
+    await supabase
       .from('generated_logos')
       .update({ 
         is_paid: true,
@@ -452,146 +410,13 @@ async function processBrandbookPayment(paymentData: any) {
       .eq('user_id', user_id)
       .eq('logo_url', logoUrl);
 
-    if (logoUpdateError) {
-      console.error('Error updating logo status:', logoUpdateError);
-      // Не прерываем выполнение, так как брендбук уже создан
-    }
-
     console.log(`Brandbook payment processed successfully for payment ${yookassa_payment_id}`);
     
     // Здесь можно добавить отправку email с брендбуком
     
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error processing brandbook payment:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      paymentId: yookassa_payment_id,
-      userId: user_id,
-      productData: product_data
-    });
-
-    // Попытаемся создать запись в базе данных с ошибкой, чтобы пользователь знал о проблеме
-    try {
-      const errorOrderId = `brandbook_error_${Date.now()}_${user_id}`;
-      await supabase
-        .from('brandbooks')
-        .insert({
-          user_id: user_id,
-          payment_id: yookassa_payment_id,
-          order_id: errorOrderId, // Добавляем order_id и для ошибочной записи
-          business_name: name,
-          keywords: keywords,
-          slogan: slogan || '',
-          original_logo_url: logoUrl,
-          logo_variants: [],
-          fonts: [],
-          color_palette: [],
-          icons: [],
-          guidelines: null,
-          applications: null,
-          status: 'failed',
-          payment_status: 'completed',
-          is_demo: false,
-          error_message: error.message
-        });
-      
-      console.log(`Created failed brandbook record for payment ${yookassa_payment_id}`);
-    } catch (insertError) {
-      console.error('Failed to create error record in database:', insertError);
-    }
-
-    // В будущем здесь можно добавить отправку уведомления администратору
-    // или автоматическую попытку повторного создания брендбука
   }
 }
-
-// Роут для повторной обработки неудачного платежа брендбука
-router.post('/yookassa/retry-brandbook/:paymentId', async (req: any, res: any) => {
-  try {
-    const { paymentId } = req.params;
-    const { userId } = req.body;
-
-    if (!paymentId) {
-      return res.status(400).json({ 
-        error: 'Payment ID is required' 
-      });
-    }
-
-    if (!userId) {
-      return res.status(400).json({ 
-        error: 'User ID is required' 
-      });
-    }
-
-    const supabase = getSupabaseClient();
-    
-    // Ищем платеж в нашей базе данных
-    const { data: localPayment, error: fetchError } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('yookassa_payment_id', paymentId)
-      .eq('user_id', userId)
-      .eq('product_type', 'brandbook')
-      .eq('status', 'succeeded')
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching payment for retry:', fetchError);
-      return res.status(404).json({ 
-        error: 'Payment not found or not eligible for retry' 
-      });
-    }
-
-    if (!localPayment) {
-      return res.status(404).json({ 
-        error: 'Payment not found' 
-      });
-    }
-
-    // Проверяем, есть ли уже успешно созданный брендбук
-    const { data: existingBrandbook, error: brandbookError } = await supabase
-      .from('brandbooks')
-      .select('id, status')
-      .eq('payment_id', paymentId)
-      .eq('status', 'completed')
-      .single();
-
-    if (!brandbookError && existingBrandbook) {
-      return res.status(200).json({ 
-        success: true,
-        message: 'Brandbook already exists',
-        brandbookId: existingBrandbook.id
-      });
-    }
-
-    // Удаляем запись с ошибкой, если она есть
-    await supabase
-      .from('brandbooks')
-      .delete()
-      .eq('payment_id', paymentId)
-      .eq('status', 'failed');
-
-    console.log(`Retrying brandbook creation for payment ${paymentId}`);
-    
-    // Повторно обрабатываем платеж
-    await processSuccessfulPayment({
-      id: paymentId,
-      status: 'succeeded'
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Brandbook creation retry initiated'
-    });
-
-  } catch (error: any) {
-    console.error('Error retrying brandbook creation:', error);
-    return res.status(500).json({
-      error: 'Failed to retry brandbook creation',
-      message: error.message
-    });
-  }
-});
 
 export default router; 

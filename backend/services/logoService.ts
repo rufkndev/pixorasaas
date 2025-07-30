@@ -1,7 +1,4 @@
 import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 // Интерфейсы для типизации
 export interface GeneratedResponse {
@@ -76,42 +73,6 @@ export class LogoService {
     throw new Error(`Timeout waiting for GenAPI result after ${maxAttempts} attempts`);
   }
 
-  // Функция для скачивания изображения и сохранения локально
-  private async downloadAndSaveImage(imageUrl: string, businessName: string): Promise<string> {
-    try {
-      // Скачиваем изображение
-      const response = await axios.get(imageUrl, {
-        responseType: 'arraybuffer',
-        timeout: 30000 // 30 секунд таймаут
-      });
-
-      // Создаем уникальное имя файла
-      const timestamp = Date.now();
-      const uuid = uuidv4().split('-')[0]; // Первая часть UUID для краткости
-      const sanitizedName = businessName.replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '_').toLowerCase();
-      const fileName = `${sanitizedName}_${timestamp}_${uuid}.png`;
-
-      // Определяем путь для сохранения (от корня проекта)
-      const publicDir = path.join(process.cwd(), 'public', 'generated-logos');
-      
-      // Создаем папку если её нет
-      if (!fs.existsSync(publicDir)) {
-        fs.mkdirSync(publicDir, { recursive: true });
-      }
-
-      const filePath = path.join(publicDir, fileName);
-
-      // Сохраняем файл
-      fs.writeFileSync(filePath, response.data);
-
-      // Возвращаем относительный путь для фронтенда
-      return `/generated-logos/${fileName}`;
-    } catch (error) {
-      console.error('Error downloading and saving image:', error);
-      throw new Error('Failed to download and save logo image');
-    }
-  }
-
   // Генерация логотипа
   async generateLogo(businessName: string, keywords: string, industry: string): Promise<string> {
     const prompt = this.createLogoPrompt(businessName, keywords, industry);
@@ -135,16 +96,13 @@ export class LogoService {
       throw new Error('Logo URL not found in API response');
     }
     
-    // Скачиваем и сохраняем изображение локально
-    const localLogoPath = await this.downloadAndSaveImage(logoUrl, businessName);
-    
-    return localLogoPath;
+    return logoUrl;
   }
 
   // Генерация логотипа без вотермарки (для оплаченных версий)
   async generateCleanLogo(businessName: string, keywords: string, industry: string = 'general'): Promise<string> {
     // Используем тот же метод генерации, что и для обычного логотипа
-    // Логотип уже сохраняется локально, вотермарка добавляется только на фронтенде
+    // Вотермарка добавляется на фронтенде, а не здесь
     return this.generateLogo(businessName, keywords, industry);
   }
 

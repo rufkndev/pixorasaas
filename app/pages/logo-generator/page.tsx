@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import LogoImage from '../../components/LogoImage';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useAuth } from '../../context/AuthContext';
@@ -176,14 +175,23 @@ function LogoGeneratorContent() {
                       </div>
                     ) : logoUrl ? (
                       <div className="relative bg-gray-100 rounded-md h-96 flex items-center justify-center overflow-hidden">
-                        <LogoImage
-                          src={logoUrl}
-                          alt={`Логотип ${name}`}
-                          width={400}
-                          height={400}
-                          className="max-h-full max-w-full object-contain"
-                          showWatermark={true}
-                        />
+                        {/* Здесь будет отображаться сгенерированный логотип */}
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <Image
+                            src={logoUrl}
+                            alt={`Логотип ${name}`}
+                            width={400}
+                            height={400}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                          
+                          {/* Водяной знак поверх изображения */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none pointer-events-none" style={{ fontSize: '5rem' }}>
+                              PIXORA
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-gray-100 rounded-md flex items-center justify-center h-96">

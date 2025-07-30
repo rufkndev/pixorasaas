@@ -14,16 +14,10 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'www.pixora-labs.ru',
-        port: '',
-        pathname: '/generated-logos/**',
-      },
     ],
     // Разрешаем локальные изображения
     unoptimized: false,
-    domains: ['localhost', 'www.pixora-labs.ru'],
+    domains: ['localhost'],
   },
   async rewrites() {
     return [
