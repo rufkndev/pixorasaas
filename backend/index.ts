@@ -58,7 +58,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', generateNameRoutes);
 app.use('/api', generateLogoRoutes);
-app.use('/api', generateBrandbookRoutes);
+app.use('/api/generate-brandbook', generateBrandbookRoutes);
 app.use('/api', sendContactRoutes);
 app.use('/api', downloadBrandbookRoutes);
 app.use('/api', downloadLogoRoutes);
@@ -74,4 +74,4 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});
