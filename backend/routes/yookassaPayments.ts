@@ -406,12 +406,16 @@ async function processBrandbookPayment(paymentData: any) {
     
     console.log(`Brandbook generated successfully, saving to database...`);
     
+    // Создаем уникальный order_id для брендбука
+    const orderId = `brandbook_${Date.now()}_${user_id}`;
+
     // Сохраняем в базу данных
     const { data: savedBrandbook, error: insertError } = await supabase
       .from('brandbooks')
       .insert({
         user_id: user_id,
         payment_id: yookassa_payment_id,
+        order_id: orderId, // Добавляем order_id
         business_name: name,
         keywords: keywords,
         slogan: slogan || brandbook.slogan || '',
@@ -469,11 +473,13 @@ async function processBrandbookPayment(paymentData: any) {
 
     // Попытаемся создать запись в базе данных с ошибкой, чтобы пользователь знал о проблеме
     try {
+      const errorOrderId = `brandbook_error_${Date.now()}_${user_id}`;
       await supabase
         .from('brandbooks')
         .insert({
           user_id: user_id,
           payment_id: yookassa_payment_id,
+          order_id: errorOrderId, // Добавляем order_id и для ошибочной записи
           business_name: name,
           keywords: keywords,
           slogan: slogan || '',
