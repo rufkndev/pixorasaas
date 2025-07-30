@@ -5,7 +5,7 @@ import { getSupabaseClient } from '../index';
 const router = Router();
 
 // Маршрут для генерации демо-брендбука (только для предпросмотра)
-router.post('/generate-brandbook', async (req: any, res: any) => {
+router.post('/', async (req: any, res: any) => {
   try {
     const { name, keywords, logoUrl, userId, brandStyle, industry } = req.body;
 

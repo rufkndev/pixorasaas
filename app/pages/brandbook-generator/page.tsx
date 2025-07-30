@@ -24,9 +24,12 @@ function BrandbookGeneratorContent() {
   
   // Состояние для отслеживания генерации брендбука
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreatingFullBrandbook, setIsCreatingFullBrandbook] = useState(false);
   const [brandbook, setBrandbook] = useState<any>(null);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+
 
   // Предотвращаем гидратацию
   useEffect(() => {
@@ -36,12 +39,66 @@ function BrandbookGeneratorContent() {
     if (mounted && (!name || !keywords || !logoUrl)) {
       router.push('/');
     }
-  }, [mounted, name, keywords, logoUrl]);
+  }, [mounted, name, keywords, logoUrl, router]);
 
-  // Функция для генерации брендбука
-  const generateBrandbook = async () => {
+  // Эффект для обработки успешной оплаты
+  useEffect(() => {
+    const paymentSuccess = searchParams.get('payment_success') === 'true';
+    const currentOrderId = searchParams.get('orderId');
+
+    if (paymentSuccess && currentOrderId && user && !isCreatingFullBrandbook) {
+      setOrderId(currentOrderId);
+      createFullBrandbook(currentOrderId);
+    }
+  }, [searchParams, user, isCreatingFullBrandbook]);
+
+  // Функция для создания полного брендбука после оплаты
+  const createFullBrandbook = async (orderId: string) => {
     if (!user) {
-      setError('Необходимо войти в систему для генерации брендбука');
+      setError('Необходимо войти в систему для создания полного брендбука');
+      return;
+    }
+  
+    setIsCreatingFullBrandbook(true);
+    setError('');
+  
+    try {
+      const response = await fetch('/api/generate-brandbook/create-full-brandbook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          name,
+          keywords,
+          logoUrl,
+          slogan: brandbook?.slogan || '',
+          userId: user.id,
+          brandStyle: style,
+          industry,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.error || 'Ошибка при создании полного брендбука');
+      }
+  
+      // Перенаправляем на страницу профиля, где будет доступен брендбук
+      router.push('/pages/profile');
+  
+    } catch (err: any) {
+      setError(`Произошла ошибка: ${err.message}. Пожалуйста, свяжитесь с поддержкой.`);
+    } finally {
+      setIsCreatingFullBrandbook(false);
+    }
+  };
+
+
+  // Функция для генерации демо-брендбука
+  const generateDemoBrandbook = async () => {
+    if (!user) {
+      setError('Необходимо войти в систему для генерации предпросмотра');
       return;
     }
 
@@ -49,7 +106,7 @@ function BrandbookGeneratorContent() {
     setError('');
     
     try {
-      // Вызов API для генерации брендбука
+      // Вызов API для генерации демо-брендбука
       const apiUrl = `/api/generate-brandbook`;
 
       const response = await fetch(apiUrl, {
@@ -70,14 +127,14 @@ function BrandbookGeneratorContent() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Ошибка при генерации брендбука');
+        throw new Error(data.error || 'Ошибка при генерации предпросмотра');
       }
       
       // Устанавливаем сгенерированный брендбук
       setBrandbook(data.brandbook);
       
     } catch (err: any) {
-      setError(`Произошла ошибка при генерации брендбука: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
+      setError(`Произошла ошибка при генерации предпросмотра: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
     } finally {
       setIsGenerating(false);
     }
@@ -111,7 +168,16 @@ function BrandbookGeneratorContent() {
             </div>
 
             <div className="mt-12 max-w-6xl mx-auto">
-              {!mounted || isAuthLoading ? (
+              {isCreatingFullBrandbook && (
+                <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Платеж успешен!</h2>
+                  <p className="text-gray-700">Создаем ваш полный брендбук... Это может занять несколько минут.</p>
+                  <p className="text-gray-500 text-sm mt-2">Пожалуйста, не закрывайте эту страницу.</p>
+                </div>
+              )}
+
+              {!isCreatingFullBrandbook && (!mounted || isAuthLoading ? (
                 <LoadingSkeleton />
               ) : error ? (
                 <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
@@ -149,11 +215,11 @@ function BrandbookGeneratorContent() {
                   {/* Кнопка генерации */}
                   <div className="flex justify-center">
                     <button
-                      onClick={generateBrandbook}
-                      disabled={isGenerating}
+                      onClick={generateDemoBrandbook}
+                      disabled={isGenerating || brandbook}
                       className="py-3 px-8 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
                     >
-                      {isGenerating ? 'Генерация...' : 'Сгенерировать демо-брендбук'}
+                      {isGenerating ? 'Генерация...' : 'Сгенерировать предпросмотр'}
                     </button>
                   </div>
 
@@ -184,7 +250,7 @@ function BrandbookGeneratorContent() {
                       <h2 className="text-xl font-bold text-gray-900">Фирменный слоган</h2>
                       {brandbook?.slogan && (
                         <button
-                          onClick={generateBrandbook}
+                          onClick={generateDemoBrandbook}
                           disabled={isGenerating}
                           className="py-2 px-4 flex items-center border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
@@ -197,21 +263,21 @@ function BrandbookGeneratorContent() {
                     </div>
                     <div className="bg-gray-50 rounded-lg p-6">
                       <div className="text-center">
-                        {isGenerating ? (
+                        {isGenerating && !brandbook ? (
                           <div className="flex flex-col items-center">
                             <svg className="animate-spin h-8 w-8 text-gray-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <p className="text-xl italic text-gray-600 mb-2">Генерация слогана...</p>
+                            <p className="text-xl italic text-gray-600 mb-2">Генерация предпросмотра...</p>
                             <p className="text-sm text-gray-500">
-                              ИИ-маркетолог создает уникальный слоган для вашего бизнеса
+                              ИИ-маркетолог создает уникальный слоган и вариации для вашего бизнеса
                             </p>
                           </div>
                         ) : (
                           <div>
                             <p className="text-xl italic text-gray-700 mb-2">
-                              {brandbook?.slogan || '"[Нажмите кнопку для генерации слогана]"'}
+                              {brandbook?.slogan || '"[Нажмите кнопку для генерации предпросмотра]"'}
                             </p>
                             <p className="text-sm text-gray-500">
                               {brandbook?.slogan 
@@ -231,7 +297,7 @@ function BrandbookGeneratorContent() {
                       <h2 className="text-xl font-bold text-gray-900">Вариации логотипа</h2>
                       {brandbook?.logoVariants && brandbook.logoVariants.length > 0 && (
                         <button
-                          onClick={generateBrandbook}
+                          onClick={generateDemoBrandbook}
                           disabled={isGenerating}
                           className="py-2 px-4 flex items-center border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
@@ -243,7 +309,7 @@ function BrandbookGeneratorContent() {
                       )}
                     </div>
                     
-                    {isGenerating ? (
+                    {isGenerating && !brandbook ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Скелетоны для состояния загрузки */}
                         {[1, 2, 3].map((index) => (
@@ -371,7 +437,7 @@ function BrandbookGeneratorContent() {
                                 <svg className="w-8 h-8 mb-2" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                                 </svg>
-                                <span>Нажмите "Сгенерировать демо-брендбук"</span>
+                                <span>Нажмите "Сгенерировать предпросмотр"</span>
                               </div>
                             </div>
                             <div className="space-y-1">
@@ -649,7 +715,7 @@ function BrandbookGeneratorContent() {
                     </div>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
         </section>

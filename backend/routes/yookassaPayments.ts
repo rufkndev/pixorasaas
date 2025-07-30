@@ -88,7 +88,7 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
 
     // Создаем платеж в ЮKassa с минимальными метаданными
     const payment = await yookassaService.createPayment({
-      amount: amount,
+      amount: 50, // Тестовая сумма
       description: description || `Оплата ${productType === 'logo' ? 'логотипа' : 'брендбука'}`,
       returnUrl: returnUrl,
       customerEmail: productData.email,
@@ -376,7 +376,7 @@ async function processBrandbookPayment(paymentData: any) {
       .from('brandbooks')
       .insert({
         user_id: user_id,
-        payment_id: yookassa_payment_id,
+        order_id: yookassa_payment_id, // Используем payment_id как order_id
         business_name: name,
         keywords: keywords,
         slogan: slogan || brandbook.slogan || '',
@@ -396,6 +396,10 @@ async function processBrandbookPayment(paymentData: any) {
       .single();
 
     if (insertError) {
+      if (insertError.code === '23505') { // Ошибка уникальности (дубликат)
+        console.warn(`Brandbook with order_id ${yookassa_payment_id} already exists. Skipping.`);
+        return;
+      }
       throw insertError;
     }
 
@@ -404,7 +408,7 @@ async function processBrandbookPayment(paymentData: any) {
       .from('generated_logos')
       .update({ 
         is_paid: true,
-        payment_id: yookassa_payment_id,
+        order_id: yookassa_payment_id,
         updated_at: new Date().toISOString()
       })
       .eq('user_id', user_id)
@@ -419,4 +423,4 @@ async function processBrandbookPayment(paymentData: any) {
   }
 }
 
-export default router; 
+export default router;
