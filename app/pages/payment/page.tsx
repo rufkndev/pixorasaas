@@ -55,7 +55,7 @@ function PaymentContent() {
     if (mounted && product === 'logo' && (!name || !keywords)) {
       router.push('/');
     }
-  }, [mounted, product, name, keywords, logoUrl, industry, brandStyle, user]);
+  }, [mounted, product, name, keywords, logoUrl, industry, brandStyle, user, router]);
 
   // Информация о продуктах
   const productInfo = {
@@ -105,6 +105,8 @@ function PaymentContent() {
     setError('');
     
     try {
+      const orderId = `order_${Date.now()}`;
+
       // Подготавливаем данные для оплаты
       const productData = {
         userId: user?.id,
@@ -120,6 +122,24 @@ function PaymentContent() {
         })
       };
 
+      // Определяем URL для возврата в зависимости от продукта
+      let returnUrl;
+      if (product === 'brandbook') {
+        const brandbookParams = new URLSearchParams({
+          name,
+          keywords,
+          logoUrl,
+          industry,
+          style: brandStyle,
+          payment_success: 'true',
+          orderId,
+        });
+        returnUrl = `${window.location.origin}/pages/brandbook-generator?${brandbookParams.toString()}`;
+      } else {
+        returnUrl = `${window.location.origin}/pages/payment/success?product=${product}&userId=${user?.id}&orderId=${orderId}`;
+      }
+
+
       // Создаем платеж в ЮKassa
       const createPaymentResponse = await fetch('/api/yookassa/create-payment', {
         method: 'POST',
@@ -129,13 +149,14 @@ function PaymentContent() {
         body: JSON.stringify({
           amount: currentProduct.price,
           description: `Оплата ${currentProduct.title} для "${name}"`,
-          returnUrl: `${window.location.origin}/pages/payment/success?product=${product}&userId=${user?.id}`,
+          returnUrl: returnUrl,
           productType: product,
           productData: productData,
           metadata: {
             paymentMethod,
             userEmail: email,
-            userPhone: phone
+            userPhone: phone,
+            orderId: orderId,
           }
         }),
       });
