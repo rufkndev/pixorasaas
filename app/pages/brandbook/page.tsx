@@ -29,11 +29,10 @@ if (typeof document !== 'undefined') {
 function BrandbookContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   
   // Получаем данные из URL параметров
   const orderId = searchParams.get('orderId') || '';
-  const userId = searchParams.get('userId') || '';
   
   // Состояние для загрузки брендбука
   const [isLoading, setIsLoading] = useState(true);
@@ -62,29 +61,13 @@ function BrandbookContent() {
     });
   };
 
-  // Предотвращаем гидратацию
-  useEffect(() => {
-    setMounted(true);
-    
-    // Перенаправление на главную, если нет необходимых данных
-    if (mounted && (!orderId || !userId)) {
-      router.push('/');
-      return;
-    }
-    
-    // Загружаем данные брендбука
-    if (mounted && orderId && userId) {
-      loadBrandbook();
-    }
-  }, [mounted, orderId, userId]);
-
   // Загрузка данных брендбука
-  const loadBrandbook = async () => {
+  const loadBrandbook = async (userId: string) => {
     setIsLoading(true);
     
     try {
       // Загружаем данные брендбука из API
-      const apiUrl = `/api/brandbook/${orderId}?userId=${userId}`;
+      const apiUrl = `/api/generate-brandbook/brandbook/${orderId}?userId=${userId}`;
       
       const response = await fetch(apiUrl);
       const data = await response.json();
@@ -141,6 +124,29 @@ function BrandbookContent() {
     }
   };
 
+
+  // Предотвращаем гидратацию и загружаем данные
+  useEffect(() => {
+    setMounted(true);
+
+    if (isAuthLoading) {
+      return; // Ждем окончания загрузки пользователя
+    }
+
+    if (!orderId) {
+      router.push('/');
+      return;
+    }
+
+    if (user) {
+      loadBrandbook(user.id);
+    } else {
+      // Если пользователь не авторизован, можно перенаправить на страницу входа
+      router.push('/pages/login'); 
+    }
+  }, [mounted, orderId, user, isAuthLoading, router]);
+
+
   // Функция скачивания файлов
   const downloadFile = (type: string) => {
     const apiUrl = 'https://www.pixora-labs.ru';
@@ -148,7 +154,7 @@ function BrandbookContent() {
     // Разделяем тип и параметры запроса
     const [endpoint, queryParams] = type.split('?');
     const baseUrl = `${apiUrl}/api/download-${endpoint}/${orderId}`;
-    const fullUrl = queryParams ? `${baseUrl}?userId=${userId}&${queryParams}` : `${baseUrl}?userId=${userId}`;
+    const fullUrl = queryParams ? `${baseUrl}?userId=${user?.id}&${queryParams}` : `${baseUrl}?userId=${user?.id}`;
     
     // Создаем временную ссылку для скачивания
     const link = document.createElement('a');
