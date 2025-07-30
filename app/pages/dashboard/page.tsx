@@ -67,13 +67,16 @@ export default function Dashboard() {
     }
   }, [user, isLoading, router]);
 
-  // Загружаем данные пользователя
+  // Загружаем данные пользователя при изменении активной вкладки
   useEffect(() => {
     if (user && mounted) {
-      fetchUserLogos();
-      fetchUserBrandbooks();
+      if (activeTab === 'logos') {
+        fetchUserLogos();
+      } else if (activeTab === 'brandbooks') {
+        fetchUserBrandbooks();
+      }
     }
-  }, [user, mounted]);
+  }, [user, mounted, activeTab]);
 
   // Функция для получения логотипов пользователя
   const fetchUserLogos = async () => {
@@ -100,7 +103,7 @@ export default function Dashboard() {
     
     setIsLoadingBrandbooks(true);
     try {
-      const response = await fetch(`/api/user-brandbooks/${user.id}`);
+      const response = await fetch(`/api/generate-brandbook/user-brandbooks/${user.id}`);
       const data = await response.json();
       
       if (data.brandbooks) {
@@ -439,4 +442,4 @@ export default function Dashboard() {
       <Footer />
     </>
   );
-} 
+}
