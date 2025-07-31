@@ -147,7 +147,6 @@ function PaymentContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: currentProduct.price,
           description: `Оплата ${currentProduct.title} для "${name}"`,
           returnUrl: returnUrl,
           productType: product,

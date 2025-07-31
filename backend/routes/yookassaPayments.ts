@@ -6,6 +6,12 @@ import { brandbookService } from '../services/brandbookServices';
 
 const router = Router();
 
+// Карта цен для продуктов
+const productPrices = {
+  logo: 499,
+  brandbook: 999,
+};
+
 // Тестовый роут для диагностики проблем с ЮKassa
 router.post('/yookassa/test-payment', async (req: any, res: any) => {
   try {
@@ -42,7 +48,6 @@ router.post('/yookassa/test-payment', async (req: any, res: any) => {
 router.post('/yookassa/create-payment', async (req: any, res: any) => {
   try {
     const { 
-      amount, 
       description, 
       metadata, 
       returnUrl,
@@ -51,24 +56,19 @@ router.post('/yookassa/create-payment', async (req: any, res: any) => {
     } = req.body;
 
     // Валидация
-    if (!amount || amount <= 0) {
+    if (!productType || !Object.keys(productPrices).includes(productType)) {
       return res.status(400).json({ 
-        error: 'Invalid amount',
-        message: 'Amount must be greater than 0'
+        error: 'Invalid productType',
+        message: 'Product type must be one of: ' + Object.keys(productPrices).join(', ')
       });
     }
+
+    const amount = productPrices[productType as keyof typeof productPrices];
 
     if (!returnUrl) {
       return res.status(400).json({ 
         error: 'Missing returnUrl',
         message: 'Return URL is required'
-      });
-    }
-
-    if (!productType || !['logo', 'brandbook'].includes(productType)) {
-      return res.status(400).json({ 
-        error: 'Invalid productType',
-        message: 'Product type must be "logo" or "brandbook"'
       });
     }
 
