@@ -48,7 +48,7 @@ export default function Hero() {
           <div className="relative h-40 w-40 sm:h-56 sm:w-56 md:h-72 md:w-72">
             <Image
               src="/logo.svg"
-              alt="Pixora Logo"
+              alt="Pixora - AI генератор логотипов и брендбуков за 5 минут"
               fill
               className="object-contain"
               priority

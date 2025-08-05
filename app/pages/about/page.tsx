@@ -49,7 +49,7 @@ export default function AboutPage() {
                 <div className="relative h-32 w-32">
                   <Image
                     src="/logo.svg"
-                    alt="Pixora Logo"
+                    alt="Логотип Pixora - AI генератор брендинга и логотипов"
                     fill
                     className="object-contain"
                   />

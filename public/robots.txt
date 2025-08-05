@@ -1,0 +1,61 @@
+# Robots.txt для pixora-labs.ru
+# Обновлено: 2024
+
+User-agent: *
+Allow: /
+
+# Основные страницы (высокий приоритет для индексации)
+Allow: /pages/about
+Allow: /pages/pricing
+Allow: /pages/logo-generator
+Allow: /pages/brandbook-generator
+Allow: /pages/contact
+
+# Запрещаем индексацию технических и служебных страниц
+Disallow: /pages/dashboard/
+Disallow: /pages/payment/
+Disallow: /pages/brandbook/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /backend/
+Disallow: /node_modules/
+Disallow: /.git/
+Disallow: /generated-logos/
+
+# Разрешаем доступ к статическим ресурсам
+Allow: /logo.svg
+Allow: /placeholder-logo.svg
+Allow: /testimonials/
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.svg
+Allow: /*.webp
+
+# Специальные правила для поисковых ботов
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Yandex
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# Указываем путь к карте сайта
+Sitemap: https://pixora-labs.ru/sitemap.xml
+
+# Запрещаем индексацию для других ботов (защита от спама)
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /

@@ -253,7 +253,7 @@ export default function Navbar() {
               <div className="w-8 h-8 relative mr-2">
                 <Image 
                   src="/logo.svg" 
-                  alt="Pixora Logo" 
+                  alt="Pixora - создание логотипов с ИИ" 
                   fill 
                   className="object-contain"
                   priority
