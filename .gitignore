@@ -5,12 +5,24 @@
 
 node_modules/
 .next/
+.env
 .env.local
 .env.server
+.env.production
+.env*.local
 dist/
 out/
 *.log
 *.DS_Store
+.vercel
+
+# Артефакты сборки TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Редакторы
+.vscode/
+.idea/
 
 # Игнорируем все сгенерированные изображения
 *.png
@@ -18,3 +30,16 @@ out/
 *.jpeg
 *.gif
 *.webp
+
+# Сгенерированные варианты логотипов
+public/generated-logos/
+
+# claude
+.claude
+.claude/*
+.claudehistory.txt
+CLAUDE.md
+
+# docs
+docs/
+docs/*
