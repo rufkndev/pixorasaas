@@ -6,14 +6,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import { useAuth } from '../../context/AuthContext';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { apiFetch } from '../../lib/authClient';
+import { PRICES } from '../../lib/legal';
+import GenerationQuota, { QuotaLimits } from '../../components/common/GenerationQuota';
 import React from 'react';
 
 // Компонент страницы генерации логотипа
 function LogoGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  // Страница доступна только авторизованным: раньше сюда мог зайти любой
+  // и отправить userId: undefined
+  const { user, isLoading: isAuthLoading } = useRequireAuth();
   
   // Получаем название и ключевые слова из URL параметров
   const name = searchParams.get('name') || '';
@@ -26,16 +31,38 @@ function LogoGeneratorContent() {
   const [logoUrl, setLogoUrl] = useState('');
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  // null — остаток ещё не известен (не загружен или запрос не удался)
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [limits, setLimits] = useState<QuotaLimits | null>(null);
+  // Прошлые варианты не выбрасываем: к ним можно вернуться, а их предметы
+  // уходят в exclude, чтобы модель не предлагала то же самое
+  const [history, setHistory] = useState<string[]>([]);
+  const [shownSubjects, setShownSubjects] = useState<string[]>([]);
 
-  // Предотвращаем гидратацию, устанавливая mounted только после первого рендера
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
-    
+
     // Перенаправление на главную, если нет названия или ключевых слов
     if (mounted && (!name || !keywords)) {
       router.push('/');
     }
   }, [mounted, name, keywords]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Остаток — справочная информация, его недоступность не мешает генерации
+    apiFetch('/api/generation-limits')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) {
+          setRemaining(data.logos);
+          setLimits(data);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Функция для генерации логотипа
   const generateLogo = async () => {
@@ -47,27 +74,45 @@ function LogoGeneratorContent() {
       // Вызов API для генерации логотипа
       const apiUrl = `/api/generate-logo`;
       
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name,
           keywords,
-          userId: user?.id,
           industry,
-          selectedName: name
+          style,
+          selectedName: name,
+          // Сервер добавит к этому списку историю из базы
+          exclude: shownSubjects.slice(-20),
         }),
       });
-      
+
       const data = await response.json();
-      
+
+      if (typeof data.remaining === 'number') {
+        setRemaining(data.remaining);
+      }
+
+      if (!response.ok) {
+        const failure: any = new Error(data.error || data.message || 'Не удалось сгенерировать логотип');
+        failure.code = data.code;
+        throw failure;
+      }
+
       // Устанавливаем URL сгенерированного логотипа
       setLogoUrl(data.logoUrl);
-      
+
+      if (data.subject) {
+        setShownSubjects((previous) => [...previous, data.subject]);
+      }
+
     } catch (err: any) {
-      setError(`Произошла ошибка при генерации логотипа: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
+      // Про лимит сообщает блок с остатком: экран ошибки увёл бы со страницы
+      if (err?.code === 'GENERATION_LIMIT') {
+        setRemaining(0);
+      } else {
+        setError(`Произошла ошибка при генерации логотипа: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -75,13 +120,15 @@ function LogoGeneratorContent() {
 
   // Кнопка для повторной генерации логотипа
   const regenerateLogo = async () => {
-    // Сбрасываем URL логотипа перед повторной генерацией
+    // Прошлый вариант уходит в историю, а не в корзину: пользователь может
+    // вернуться к нему, не тратя ещё одну генерацию
+    if (logoUrl) {
+      setHistory((previous) => (previous.includes(logoUrl) ? previous : [...previous, logoUrl]));
+    }
     setLogoUrl('');
-    // Запускаем процесс генерации
     await generateLogo();
   };
 
-  // Компонент скелетона для состояния загрузки
   const LoadingSkeleton = () => (
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
       <div className="h-8 w-3/4 mx-auto bg-gray-200 animate-pulse rounded-md mb-6"></div>
@@ -148,12 +195,15 @@ function LogoGeneratorContent() {
                   
                   {/* Превью логотипа */}
                   <div className="mb-8">
+                    <GenerationQuota remaining={remaining} limits={limits} kind="logos" />
+
                     <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-bold text-gray-900">Ваш логотип</h2>
                       {logoUrl && (
                         <button
                           onClick={regenerateLogo}
-                          className="py-2 px-4 flex items-center border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                          disabled={remaining === 0}
+                          className="py-2 px-4 flex items-center border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -174,30 +224,51 @@ function LogoGeneratorContent() {
                         </div>
                       </div>
                     ) : logoUrl ? (
-                      <div className="relative bg-gray-100 rounded-md h-96 flex items-center justify-center overflow-hidden">
-                        {/* Здесь будет отображаться сгенерированный логотип */}
-                        <div className="relative w-full h-full flex items-center justify-center">
+                      <>
+                        {/* Фон именно белый: логотип прозрачный, и на сером
+                            его собственный квадрат читался бы как рамка */}
+                        <div className="relative bg-white border border-gray-200 rounded-md h-96 flex items-center justify-center overflow-hidden">
+                          {/* Водяной знак вшит в файл на сервере: раньше он рисовался
+                              поверх картинки на клиенте и снимался одним кликом */}
                           <Image
                             src={logoUrl}
                             alt={`Логотип ${name}`}
-                            width={400}
-                            height={400}
-                            className="max-h-full max-w-full object-contain"
+                            width={1024}
+                            height={1024}
+                            className="max-h-full max-w-full object-contain p-4"
                           />
-                          
-                          {/* Водяной знак поверх изображения */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none pointer-events-none" style={{ fontSize: '5rem' }}>
-                              PIXORA
+                        </div>
+
+                        {history.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-sm font-medium text-gray-500 mb-2">Предыдущие варианты</p>
+                            <div className="flex flex-wrap gap-3">
+                              {history.map((url) => (
+                                <button
+                                  key={url}
+                                  onClick={() => setLogoUrl(url)}
+                                  className="w-20 h-20 bg-white border border-gray-200 rounded-md hover:border-gray-900 flex items-center justify-center overflow-hidden"
+                                  title="Вернуться к этому варианту"
+                                >
+                                  <Image
+                                    src={url}
+                                    alt="Предыдущий вариант логотипа"
+                                    width={160}
+                                    height={160}
+                                    className="max-h-full max-w-full object-contain p-1"
+                                  />
+                                </button>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                      </div>
+                        )}
+                      </>
                     ) : (
                       <div className="bg-gray-100 rounded-md flex items-center justify-center h-96">
                         <button
                           onClick={generateLogo}
-                          className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                          disabled={remaining === 0}
+                          className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
                         >
                           Сгенерировать логотип
                         </button>
@@ -230,7 +301,7 @@ function LogoGeneratorContent() {
                             </li>
                           </ul>
                           <div className="text-center">
-                            <p className="text-2xl font-bold mb-4">499 ₽</p>
+                            <p className="text-2xl font-bold mb-4">{PRICES.logo} ₽</p>
                             <Link
                               href={{
                                 pathname: '/pages/payment',
@@ -276,7 +347,7 @@ function LogoGeneratorContent() {
                             </li>
                           </ul>
                           <div className="text-center">
-                           <p className="text-2xl font-bold mb-4">999 ₽</p>
+                           <p className="text-2xl font-bold mb-4">{PRICES.brandbook} ₽</p>
                             <div className="flex flex-col space-y-2">
                               <Link
                                 href={{

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Генератор брендбуков с ИИ - Создать брендбук онлайн | Pixora',
-  description: 'Создайте полный брендбук с ИИ: логотип, цвета, шрифты, руководство по использованию. Профессиональный фирменный стиль за 999₽. Скачать в PDF.',
+  description: 'Создайте полный брендбук с ИИ: логотип, цвета, шрифты, руководство по использованию. Профессиональный фирменный стиль за 499₽. Скачать в PDF.',
   keywords: [
     'генератор брендбуков',
     'создать брендбук онлайн',
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Генератор брендбуков с ИИ - Создать брендбук онлайн',
     description: 'Создайте полный брендбук с ИИ: логотип, цвета, шрифты, руководство по использованию.',
-    url: 'https://pixora-labs.ru/pages/brandbook-generator',
+    url: 'https://pixora-ai.ru/pages/brandbook-generator',
     images: [
       {
-        url: 'https://pixora-labs.ru/logo.svg',
+        url: 'https://pixora-ai.ru/logo.svg',
         width: 1200,
         height: 630,
         alt: 'Генератор брендбуков Pixora',
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     description: 'Создайте полный брендбук с ИИ: логотип, цвета, шрифты, руководство по использованию.',
   },
   alternates: {
-    canonical: 'https://pixora-labs.ru/pages/brandbook-generator',
+    canonical: 'https://pixora-ai.ru/pages/brandbook-generator',
   },
 };
 

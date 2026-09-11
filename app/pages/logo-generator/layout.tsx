@@ -18,10 +18,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Генератор логотипов с ИИ - Создать логотип онлайн за 5 минут',
     description: 'Создайте уникальный логотип с помощью ИИ за 5 минут! Высокое качество, без вотермарков.',
-    url: 'https://pixora-labs.ru/pages/logo-generator',
+    url: 'https://pixora-ai.ru/pages/logo-generator',
     images: [
       {
-        url: 'https://pixora-labs.ru/logo.svg',
+        url: 'https://pixora-ai.ru/logo.svg',
         width: 1200,
         height: 630,
         alt: 'Генератор логотипов Pixora',
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     description: 'Создайте уникальный логотип с помощью ИИ за 5 минут! Высокое качество, без вотермарков.',
   },
   alternates: {
-    canonical: 'https://pixora-labs.ru/pages/logo-generator',
+    canonical: 'https://pixora-ai.ru/pages/logo-generator',
   },
 };
 

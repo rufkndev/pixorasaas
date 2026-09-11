@@ -1,29 +1,19 @@
-/* Корневой макет приложения (Root Layout)
- * 
- * Этот файл определяет:
- * - Общую структуру HTML для всех страниц
- * - Метаданные приложения (title, description)
- * - Подключение глобальных стилей
- * - Подключение шрифтов (Inter)
- * - Подключение AuthProvider для управления аутентификацией */
+// Корневой макет: общая структура HTML, метаданные, AuthProvider, баннер cookie.
+// Шрифт системный: next/font/google скачивал файлы во время next build,
+// из-за чего сборка образа на российском сервере падала.
 
 import React from 'react';
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { AuthProvider } from './context/AuthContext';
-
-const inter = Inter({ 
-  subsets: ['latin', 'cyrillic'],
-  display: 'swap',
-});
+import CookieBanner from './components/legal/CookieBanner';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Pixora - AI генератор названий, логотипов и брендбуков | pixora-labs.ru',
+    default: 'Pixora - AI генератор названий, логотипов и брендбуков | pixora-ai.ru',
     template: '%s | Pixora - AI брендинг',
   },
-  description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков. Более 10,000 довольных клиентов. Цены от 499₽.',
+  description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков. Более 10,000 довольных клиентов. Цены от 299₽.',
   keywords: [
     'генератор логотипов',
     'создание бренда',
@@ -44,7 +34,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://pixora-labs.ru'),
+  metadataBase: new URL('https://pixora-ai.ru'),
   alternates: {
     canonical: '/',
   },
@@ -68,7 +58,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
-    url: 'https://pixora-labs.ru',
+    url: 'https://pixora-ai.ru',
     siteName: 'Pixora',
     title: 'Pixora - AI генератор названий, логотипов и брендбуков',
     description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков. Более 10,000 довольных клиентов.',
@@ -103,14 +93,14 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Pixora",
-    "url": "https://pixora-labs.ru",
-    "logo": "https://pixora-labs.ru/logo.svg",
+    "url": "https://pixora-ai.ru",
+    "logo": "https://pixora-ai.ru/logo.svg",
     "description": "Создание уникального брендинга с помощью искусственного интеллекта - логотипы, названия и брендбуки за 5 минут",
     "foundingDate": "2024",
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "customer service",
-      "url": "https://pixora-labs.ru/pages/contact"
+      "url": "https://pixora-ai.ru/pages/contact"
     },
     "sameAs": [
       "https://github.com/rufkndev/pixorasaas"
@@ -119,14 +109,14 @@ export default function RootLayout({
       {
         "@type": "Offer",
         "name": "Генерация логотипа",
-        "price": "499",
+        "price": "299",
         "priceCurrency": "RUB",
         "description": "Профессиональный логотип для вашего бизнеса с ИИ"
       },
       {
         "@type": "Offer", 
         "name": "Полный брендбук",
-        "price": "999",
+        "price": "499",
         "priceCurrency": "RUB",
         "description": "Комплексное решение для вашего бренда включая логотип, цвета и руководство"
       }
@@ -145,9 +135,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body>
         <AuthProvider>
           {children}
+          <CookieBanner />
         </AuthProvider>
       </body>
     </html>

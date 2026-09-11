@@ -1,0 +1,46 @@
+# Reverse-proxy для прода. Сертификаты выпускаются и продлеваются автоматически.
+
+{
+	email {$ACME_EMAIL:admin@localhost}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+		# В CSP только то, что реально используется: хосты сгенерированных картинок
+		# и редирект на оплату. Google Fonts убран: шрифты брендбука вендорены
+		# в public/fonts и раздаются с нашего домена, так что IP посетителя больше
+		# никуда не уезжает. Возвращать хосты нельзя без правки страницы брендбука.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.gen-api.ru https://gen-api.storage.yandexcloud.net; connect-src 'self'; form-action 'self' https://yoomoney.ru https://yookassa.ru; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+
+		-Server
+	}
+
+	# API идёт в бэкенд напрямую, минуя Next: при проксировании через Next
+	# теряется X-Forwarded-For, и в журнал согласий попадал бы IP контейнера.
+	# Домен для браузера тот же, поэтому куки сессии работают как обычно.
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+
+	handle /generated-logos/* {
+		reverse_proxy api:3001
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# На www стоит A-запись, поэтому домен нужно обслужить: иначе браузер получит
+# ошибку сертификата. Канонический адрес один — без www, как в sitemap.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

@@ -1,0 +1,124 @@
+[
+  {
+    "family": "Inter",
+    "slug": "inter",
+    "css": "/fonts/inter.css",
+    "ttf": [
+      "inter-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Golos Text",
+    "slug": "golos-text",
+    "css": "/fonts/golos-text.css",
+    "ttf": [
+      "golos-text-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Manrope",
+    "slug": "manrope",
+    "css": "/fonts/manrope.css",
+    "ttf": [
+      "manrope-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "IBM Plex Sans",
+    "slug": "ibm-plex-sans",
+    "css": "/fonts/ibm-plex-sans.css",
+    "ttf": [
+      "ibm-plex-sans-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "PT Sans",
+    "slug": "pt-sans",
+    "css": "/fonts/pt-sans.css",
+    "ttf": [
+      "pt-sans-400.ttf",
+      "pt-sans-700.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "PT Serif",
+    "slug": "pt-serif",
+    "css": "/fonts/pt-serif.css",
+    "ttf": [
+      "pt-serif-400.ttf",
+      "pt-serif-700.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Playfair Display",
+    "slug": "playfair-display",
+    "css": "/fonts/playfair-display.css",
+    "ttf": [
+      "playfair-display-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Unbounded",
+    "slug": "unbounded",
+    "css": "/fonts/unbounded.css",
+    "ttf": [
+      "unbounded-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Rubik",
+    "slug": "rubik",
+    "css": "/fonts/rubik.css",
+    "ttf": [
+      "rubik-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Oswald",
+    "slug": "oswald",
+    "css": "/fonts/oswald.css",
+    "ttf": [
+      "oswald-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Nunito",
+    "slug": "nunito",
+    "css": "/fonts/nunito.css",
+    "ttf": [
+      "nunito-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  },
+  {
+    "family": "Comfortaa",
+    "slug": "comfortaa",
+    "css": "/fonts/comfortaa.css",
+    "ttf": [
+      "comfortaa-var.ttf"
+    ],
+    "licence": "OFL-1.1",
+    "licenceFile": "OFL.txt"
+  }
+]

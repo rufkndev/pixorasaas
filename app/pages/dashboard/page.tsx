@@ -1,5 +1,3 @@
-// Страница личного кабинета пользователя
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -8,46 +6,41 @@ import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { apiFetch } from '../../lib/authClient';
+import DeleteAccountSection from '../../components/legal/DeleteAccountSection';
+import { PRICES } from '../../lib/legal';
 
-// Интерфейсы для типизации данных
 interface GeneratedLogo {
   id: number;
   name: string;
   keywords: string;
-  logo_url: string;
-  original_logo_url?: string;
-  is_paid: boolean;
-  order_id?: string;
-  created_at: string;
+  logoUrl: string;
+  originalLogoUrl?: string;
+  hasVector?: boolean;
+  isPaid: boolean;
+  orderId?: string;
+  createdAt: string;
 }
 
 interface Brandbook {
   id: number;
-  order_id: string;
-  business_name: string;
+  orderId: string;
+  businessName: string;
   keywords: string;
   slogan: string;
-  original_logo_url: string;
-  logo_variants: any[];
-  fonts: any[];
-  color_palette: any[];
-  icons: any[];
-  guidelines: any;
-  applications: any;
+  originalLogoUrl: string;
   status: string;
-  payment_status: string;
-  is_demo: boolean;
-  created_at: string;
+  paymentStatus: string;
+  isDemo: boolean;
+  createdAt: string;
 }
 
-// Типы для активных вкладок
 type ActiveTab = 'logos' | 'brandbooks';
 
 export default function Dashboard() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   
-  // Состояния компонента
   const [activeTab, setActiveTab] = useState<ActiveTab>('logos');
   const [logos, setLogos] = useState<GeneratedLogo[]>([]);
   const [brandbooks, setBrandbooks] = useState<Brandbook[]>([]);
@@ -55,7 +48,7 @@ export default function Dashboard() {
   const [isLoadingBrandbooks, setIsLoadingBrandbooks] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Предотвращаем гидратацию
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -78,15 +71,16 @@ export default function Dashboard() {
     }
   }, [user, mounted, activeTab]);
 
-  // Функция для получения логотипов пользователя
+  // Функция для получения логотипов пользователя.
+  // Сервер отдаёт только записи текущей сессии, id в пути — совместимость.
   const fetchUserLogos = async () => {
     if (!user) return;
-    
+
     setIsLoadingLogos(true);
     try {
-      const response = await fetch(`/api/user-logos/${user.id}`);
+      const response = await apiFetch(`/api/user-logos/${user.id}`);
       const data = await response.json();
-      
+
       if (data.logos) {
         setLogos(data.logos);
       }
@@ -100,12 +94,12 @@ export default function Dashboard() {
   // Функция для получения брендбуков пользователя
   const fetchUserBrandbooks = async () => {
     if (!user) return;
-    
+
     setIsLoadingBrandbooks(true);
     try {
-      const response = await fetch(`/api/generate-brandbook/user-brandbooks/${user.id}`);
+      const response = await apiFetch(`/api/generate-brandbook/user-brandbooks/${user.id}`);
       const data = await response.json();
-      
+
       if (data.brandbooks) {
         setBrandbooks(data.brandbooks);
       }
@@ -116,7 +110,6 @@ export default function Dashboard() {
     }
   };
 
-  // Функция для форматирования даты
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU', {
       year: 'numeric',
@@ -127,7 +120,34 @@ export default function Dashboard() {
     });
   };
 
-  // Функция для скачивания файла
+  // Оплаченный логотип скачивается только через API: там проверка оплаты и
+  // чистые файлы. Раньше кабинет отдавал logoUrl — превью с водяным знаком
+  const downloadLogo = async (logo: GeneratedLogo, format: 'zip' | 'svg' | 'png' | 'original') => {
+    try {
+      const response = await apiFetch(`/api/download-logo/${logo.id}?format=${format}`);
+
+      if (!response.ok) {
+        const details = await response.json().catch(() => null);
+        throw new Error(details?.message || details?.error || 'Не удалось скачать файл');
+      }
+
+      const blob = await response.blob();
+      const extension = format === 'zip' ? 'zip' : format === 'svg' ? 'svg' : 'png';
+      const suffix = format === 'original' ? '_original' : '';
+      const link = document.createElement('a');
+
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `${logo.name.replace(/\s+/g, '_')}_logo${suffix}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(link.href);
+    } catch (error: any) {
+      console.error('Ошибка при скачивании логотипа:', error);
+      alert(error.message || 'Не удалось скачать файл');
+    }
+  };
+
   const downloadFile = async (url: string, filename: string) => {
     try {
       // Проверяем, является ли URL локальным файлом
@@ -193,7 +213,6 @@ export default function Dashboard() {
     }
   };
 
-  // Функция для перехода на страницу с брендбуком
   const navigateToBrandbook = (orderId: string) => {
     if (!user) return;
     router.push(`/pages/brandbook/${orderId}`);
@@ -218,17 +237,15 @@ export default function Dashboard() {
       <Navbar />
       <main className="pt-16 min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Заголовок */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Личный кабинет
             </h1>
             <p className="text-gray-600">
-              Добро пожаловать, {user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь'}!
+              Добро пожаловать, {user.fullName || user.email.split('@')[0] || 'Пользователь'}!
             </p>
           </div>
 
-          {/* Вкладки */}
           <div className="mb-8">
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
@@ -266,7 +283,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Контент вкладок */}
           {activeTab === 'logos' && (
             <div className="tab-content">
               <h2 className="text-2xl font-semibold text-gray-900 mb-6">
@@ -303,18 +319,18 @@ export default function Dashboard() {
                     <div key={logo.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="aspect-square bg-gray-100 relative">
                         <Image
-                          src={logo.logo_url}
+                          src={logo.logoUrl}
                           alt={logo.name}
                           fill
                           className="object-contain p-4"
                           onError={(e) => {
                             // Fallback к плейсхолдеру, если изображение не загружается
-                            console.warn(`Failed to load logo image: ${logo.logo_url}`);
+                            console.warn(`Failed to load logo image: ${logo.logoUrl}`);
                             (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
                           }}
                         />
                         {/* Вотермарка для неоплаченных логотипов */}
-                        {!logo.is_paid && (
+                        {!logo.isPaid && (
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="text-gray-400 text-xl font-bold opacity-50 rotate-[-30deg] select-none" style={{ fontSize: '3rem' }}>
                               PIXORA
@@ -331,23 +347,48 @@ export default function Dashboard() {
                           {logo.keywords}
                         </p>
                         <p className="text-xs text-gray-400">
-                          Создан: {formatDate(logo.created_at)}
+                          Создан: {formatDate(logo.createdAt)}
                         </p>
                         <div className="mt-4 flex flex-col space-y-2">
-                          {!logo.is_paid ? (
+                          {!logo.isPaid ? (
                             <button 
-                              onClick={() => router.push(`/pages/payment?product=logo&name=${encodeURIComponent(logo.name)}&keywords=${encodeURIComponent(logo.keywords)}&logoUrl=${encodeURIComponent(logo.logo_url)}`)}
+                              onClick={() => router.push(`/pages/payment?product=logo&name=${encodeURIComponent(logo.name)}&keywords=${encodeURIComponent(logo.keywords)}&logoUrl=${encodeURIComponent(logo.logoUrl)}`)}
                               className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                             >
-                              Купить за 499 ₽
+                              Купить за {PRICES.logo} ₽
                             </button>
                           ) : (
-                            <button 
-                              onClick={() => downloadFile(logo.logo_url, `${logo.name.replace(/\s+/g, '_')}_logo.png`)}
-                              className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                            >
-                              Скачать
-                            </button>
+                            <>
+                              <button
+                                onClick={() => downloadLogo(logo, 'zip')}
+                                className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                              >
+                                Скачать всё (ZIP)
+                              </button>
+                              <div className="flex gap-2">
+                                {logo.hasVector && (
+                                  <button
+                                    onClick={() => downloadLogo(logo, 'svg')}
+                                    className="flex-1 border border-gray-300 text-gray-700 px-2 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                                  >
+                                    SVG
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => downloadLogo(logo, 'png')}
+                                  className="flex-1 border border-gray-300 text-gray-700 px-2 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                                >
+                                  PNG
+                                </button>
+                                <button
+                                  onClick={() => downloadLogo(logo, 'original')}
+                                  className="flex-1 border border-gray-300 text-gray-700 px-2 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                                  title="Кадр в том виде, в каком его сгенерировала нейросеть"
+                                >
+                                  Исходник
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       </div>
@@ -394,13 +435,13 @@ export default function Dashboard() {
                     <div key={brandbook.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="aspect-square bg-gray-100 relative">
                         <Image
-                          src={brandbook.original_logo_url}
-                          alt={brandbook.business_name}
+                          src={brandbook.originalLogoUrl}
+                          alt={brandbook.businessName}
                           fill
                           className="object-contain p-4"
                           onError={(e) => {
                             // Fallback к плейсхолдеру, если изображение не загружается
-                            console.warn(`Failed to load brandbook logo image: ${brandbook.original_logo_url}`);
+                            console.warn(`Failed to load brandbook logo image: ${brandbook.originalLogoUrl}`);
                             (e.target as HTMLImageElement).src = '/placeholder-logo.svg';
                           }}
                         />
@@ -408,27 +449,37 @@ export default function Dashboard() {
                       <div className="p-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {brandbook.business_name}
+                            {brandbook.businessName}
                           </h3>
+                          {/* Кабинет показывает и незавершённые заказы: молча пропадать
+                              оплаченный брендбук не должен */}
                           <span className={`px-2 py-1 text-xs rounded-full ${
-                            brandbook.is_demo 
-                              ? 'bg-yellow-100 text-yellow-800' 
-                              : 'bg-green-100 text-green-800'
+                            brandbook.status === 'processing'
+                              ? 'bg-blue-100 text-blue-800'
+                              : brandbook.status === 'failed'
+                                ? 'bg-amber-100 text-amber-800'
+                                : brandbook.isDemo
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-green-100 text-green-800'
                           }`}>
-                            {brandbook.is_demo ? 'Демо' : 'Полный'}
+                            {brandbook.status === 'processing'
+                              ? 'Собирается'
+                              : brandbook.status === 'failed'
+                                ? 'Собран не полностью'
+                                : brandbook.isDemo ? 'Демо' : 'Полный'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-600 mb-2">
                           {brandbook.slogan}
                         </p>
                         <p className="text-xs text-gray-500 mb-3">
-                          {formatDate(brandbook.created_at)}
+                          {formatDate(brandbook.createdAt)}
                         </p>
                         <button
-                          onClick={() => navigateToBrandbook(brandbook.order_id)}
+                          onClick={() => navigateToBrandbook(brandbook.orderId)}
                           className="w-full bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                         >
-                          Открыть брендбук
+                          {brandbook.status === 'processing' ? 'Смотреть ход сборки' : 'Открыть брендбук'}
                         </button>
                       </div>
                     </div>
@@ -437,6 +488,8 @@ export default function Dashboard() {
               )}
             </div>
           )}
+
+          <DeleteAccountSection />
         </div>
       </main>
       <Footer />

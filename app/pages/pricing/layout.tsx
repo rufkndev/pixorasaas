@@ -1,37 +1,37 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 499₽',
-  description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 499₽, полный брендбук от 999₽. Высокое качество, быстрая генерация, без вотермарок.',
+  title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
+  description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽. Высокое качество, быстрая генерация, без вотермарок.',
   keywords: [
     'цены на логотипы',
     'стоимость брендбука',
     'тарифы pixora',
     'доступный брендинг',
-    'цена логотипа 499 рублей',
-    'полный брендбук 999 рублей',
+    'цена логотипа 299 рублей',
+    'полный брендбук 499 рублей',
     'профессиональный дизайн недорого',
     'генерация логотипа цена'
   ],
   openGraph: {
-    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 499₽',
-    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 499₽, полный брендбук от 999₽.',
-    url: 'https://pixora-labs.ru/pages/pricing',
+    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
+    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽.',
+    url: 'https://pixora-ai.ru/pages/pricing',
     images: [
       {
-        url: 'https://pixora-labs.ru/logo.svg',
+        url: 'https://pixora-ai.ru/logo.svg',
         width: 1200,
         height: 630,
-        alt: 'Цены Pixora - от 499₽',
+        alt: 'Цены Pixora - от 299₽',
       },
     ],
   },
   twitter: {
-    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 499₽',
-    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 499₽, полный брендбук от 999₽.',
+    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
+    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽.',
   },
   alternates: {
-    canonical: 'https://pixora-labs.ru/pages/pricing',
+    canonical: 'https://pixora-ai.ru/pages/pricing',
   },
 };
 
@@ -47,7 +47,7 @@ export default function PricingLayout({
       {
         "@type": "Offer",
         "name": "Генерация логотипа",
-        "price": "499",
+        "price": "299",
         "priceCurrency": "RUB",
         "description": "Профессиональный логотип для вашего бизнеса",
         "availability": "https://schema.org/InStock",
@@ -59,7 +59,7 @@ export default function PricingLayout({
       {
         "@type": "Offer",
         "name": "Полный брендбук", 
-        "price": "999",
+        "price": "499",
         "priceCurrency": "RUB",
         "description": "Комплексное решение для вашего бренда",
         "availability": "https://schema.org/InStock",

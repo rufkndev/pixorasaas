@@ -16,10 +16,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'О компании Pixora - Инновационные решения для брендинга с ИИ',
     description: 'Узнайте о миссии Pixora - сделать профессиональный брендинг доступным всем. Передовые технологии ИИ для создания логотипов.',
-    url: 'https://pixora-labs.ru/pages/about',
+    url: 'https://pixora-ai.ru/pages/about',
     images: [
       {
-        url: 'https://pixora-labs.ru/logo.svg',
+        url: 'https://pixora-ai.ru/logo.svg',
         width: 1200,
         height: 630,
         alt: 'О компании Pixora',
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description: 'Узнайте о миссии Pixora - сделать профессиональный брендинг доступным всем.',
   },
   alternates: {
-    canonical: 'https://pixora-labs.ru/pages/about',
+    canonical: 'https://pixora-ai.ru/pages/about',
   },
 };
 

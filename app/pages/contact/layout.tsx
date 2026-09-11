@@ -16,10 +16,10 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Контакты Pixora - Связаться с нами по вопросам брендинга',
     description: 'Связаться с командой Pixora по вопросам создания логотипов и брендбуков.',
-    url: 'https://pixora-labs.ru/pages/contact',
+    url: 'https://pixora-ai.ru/pages/contact',
     images: [
       {
-        url: 'https://pixora-labs.ru/logo.svg',
+        url: 'https://pixora-ai.ru/logo.svg',
         width: 1200,
         height: 630,
         alt: 'Контакты Pixora',
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     description: 'Связаться с командой Pixora по вопросам создания логотипов и брендбуков.',
   },
   alternates: {
-    canonical: 'https://pixora-labs.ru/pages/contact',
+    canonical: 'https://pixora-ai.ru/pages/contact',
   },
 };
 

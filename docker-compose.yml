@@ -1,0 +1,145 @@
+# Один файл на дев и прод, различие — профиль и env-файл. См. docs/run.md.
+# Сервисы без profiles (db, migrate) поднимаются в обоих режимах.
+
+name: pixora
+
+x-app-env: &app-env
+  env_file:
+    - ${ENV_FILE:-.env.local}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pixora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан}
+      POSTGRES_DB: ${POSTGRES_DB:-pixora}
+      # Явная локаль, чтобы сортировка не зависела от хоста
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Только на localhost, наружу база не смотрит
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pixora} -d ${POSTGRES_DB:-pixora}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Применяет миграции и завершается. Приложение ждёт его успеха.
+  migrate:
+    build:
+      context: .
+      target: api
+    <<: *app-env
+    environment:
+      NODE_ENV: production
+    command: ["node", "dist/db/migrate.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  web-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: web-dev
+    <<: *app-env
+    environment:
+      NODE_ENV: development
+      API_INTERNAL_URL: http://api-dev:3001
+    volumes:
+      - .:/app
+      # Пустые volume'ы прячут node_modules и .next хоста.
+      # Зависимости лежат в образе по пути /node_modules, см. Dockerfile.
+      - /app/node_modules
+      - /app/.next
+      - generated-logos:/app/public/generated-logos
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-dev
+
+  api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: api-dev
+    <<: *app-env
+    environment:
+      NODE_ENV: development
+      GENERATED_LOGOS_DIR: /app/public/generated-logos
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - generated-logos:/app/public/generated-logos
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    profiles: ["prod"]
+    build:
+      context: .
+      target: web
+    <<: *app-env
+    environment:
+      # NODE_ENV задаём здесь: environment важнее env_file, и прод не сможет
+      # случайно подняться с development — от него зависит флаг Secure у кук.
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:3001
+    volumes:
+      - generated-logos:/app/public/generated-logos:ro
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  api:
+    profiles: ["prod"]
+    build:
+      context: .
+      target: api
+    <<: *app-env
+    environment:
+      NODE_ENV: production
+      GENERATED_LOGOS_DIR: /app/public/generated-logos
+    volumes:
+      - generated-logos:/app/public/generated-logos
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    profiles: ["prod"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # Без :? — иначе дев не поднимется из-за пустого DOMAIN.
+      # Если не задан, Caddy упадёт с этой строкой в логах.
+      DOMAIN: ${DOMAIN:-DOMAIN-not-set-in-env-file}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  pgdata:
+  generated-logos:
+  caddy-data:
+  caddy-config:

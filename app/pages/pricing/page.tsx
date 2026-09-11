@@ -1,16 +1,13 @@
-/* Страница "Цены" (Pricing)
- * 
- * Этот файл содержит компонент страницы с информацией о тарифах и ценах на услуги Pixora.
- * Страница отображает доступные тарифные планы с подробным описанием включенных функций
- * и преимуществ каждого плана. */
-
 import Link from 'next/link';
 
-// Компонент страницы "Цены"
+import Navbar from '../../components/layout/Navbar';
+import Footer from '../../components/layout/Footer';
+import { PRICES, FREE_GENERATIONS, QUOTA_WINDOW_DAYS } from '../../lib/legal';
 export default function PricingPage() {
   return (
+    <>
+    <Navbar />
     <main className="pt-16">
-      {/* Секция с заголовком */}
       <div className="bg-gray-50 py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
@@ -36,7 +33,7 @@ export default function PricingPage() {
                   Профессиональный логотип для вашего бизнеса
                 </p>
                 <p className="mt-4 text-5xl font-extrabold text-gray-900 text-center">
-                  499 ₽
+                  {PRICES.logo} ₽
                 </p>
                 {/* Список включенных функций */}
                 <ul className="mt-8 space-y-4">
@@ -89,7 +86,7 @@ export default function PricingPage() {
                   Комплексное решение для вашего бренда
                 </p>
                 <p className="mt-4 text-5xl font-extrabold text-gray-900 text-center">
-                  999 ₽
+                  {PRICES.brandbook} ₽
                 </p>
                 {/* Список включенных функций */}
                 <ul className="mt-8 space-y-4">
@@ -143,6 +140,35 @@ export default function PricingPage() {
             </div>
           </div>
 
+          {/* Правила бесплатных генераций: пользователь должен понимать,
+              почему счётчик закончился и когда вернётся */}
+          <div className="mt-16 max-w-3xl mx-auto bg-white border border-gray-200 rounded-lg p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Бесплатные генерации</h2>
+            <p className="text-gray-700 mb-4">
+              Попробовать сервис можно бесплатно и без оплаты картой: каждому аккаунту доступно{' '}
+              <strong>{FREE_GENERATIONS} генераций названий</strong> и{' '}
+              <strong>{FREE_GENERATIONS} генераций логотипа</strong>. Этого достаточно, чтобы
+              оценить качество до покупки.
+            </p>
+            <ul className="space-y-2 text-gray-700">
+              <li className="flex items-start">
+                <span className="mr-2 text-gray-400">—</span>
+                Счётчик <strong>обновляется автоматически раз в {QUOTA_WINDOW_DAYS} дней</strong>.
+                Отсчёт идёт от первой генерации, дату обновления видно прямо в генераторе.
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2 text-gray-400">—</span>
+                Оплата логотипа или брендбука <strong>сразу возвращает все генерации</strong> и
+                начинает новый период.
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2 text-gray-400">—</span>
+                Бесплатные логотипы показываются с водяным знаком. Файлы без него, в высоком
+                разрешении и в векторе, открываются после оплаты.
+              </li>
+            </ul>
+          </div>
+
           {/* Секция с призывом связаться для получения дополнительной информации */}
           <div className="mt-16 text-center">
             <p className="text-gray-700 mb-4">
@@ -158,5 +184,7 @@ export default function PricingPage() {
         </div>
       </div>
     </main>
+    <Footer />
+    </>
   );
 } 

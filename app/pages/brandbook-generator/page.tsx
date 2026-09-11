@@ -6,14 +6,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import { useAuth } from '../../context/AuthContext';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { apiFetch } from '../../lib/authClient';
+import { PRICES } from '../../lib/legal';
 import React from 'react';
 
 // Компонент страницы генерации брендбука
 function BrandbookGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useRequireAuth();
   
   // Получаем данные из URL параметров
   const name = searchParams.get('name') || '';
@@ -24,14 +26,11 @@ function BrandbookGeneratorContent() {
   
   // Состояние для отслеживания генерации брендбука
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCreatingFullBrandbook, setIsCreatingFullBrandbook] = useState(false);
   const [brandbook, setBrandbook] = useState<any>(null);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
 
-
-  // Предотвращаем гидратацию
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
     
@@ -41,59 +40,8 @@ function BrandbookGeneratorContent() {
     }
   }, [mounted, name, keywords, logoUrl, router]);
 
-  // Эффект для обработки успешной оплаты
-  useEffect(() => {
-    const paymentSuccess = searchParams.get('payment_success') === 'true';
-    const currentOrderId = searchParams.get('orderId');
-
-    if (paymentSuccess && currentOrderId && user && !isCreatingFullBrandbook) {
-      setOrderId(currentOrderId);
-      createFullBrandbook(currentOrderId);
-    }
-  }, [searchParams, user, isCreatingFullBrandbook]);
-
-  // Функция для создания полного брендбука после оплаты
-  const createFullBrandbook = async (orderId: string) => {
-    if (!user) {
-      setError('Необходимо войти в систему для создания полного брендбука');
-      return;
-    }
-  
-    setIsCreatingFullBrandbook(true);
-    setError('');
-  
-    try {
-      const response = await fetch('/api/generate-brandbook/create-full-brandbook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          name,
-          keywords,
-          logoUrl,
-          slogan: brandbook?.slogan || '',
-          userId: user.id,
-          brandStyle: style,
-          industry,
-        }),
-      });
-  
-      const data = await response.json();
-  
-      if (!response.ok) {
-        throw new Error(data.error || 'Ошибка при создании полного брендбука');
-      }
-  
-      // Перенаправляем на страницу созданного брендбука
-      router.push(`/pages/brandbook/${orderId}`);
-  
-    } catch (err: any) {
-      setError(`Произошла ошибка: ${err.message}. Пожалуйста, свяжитесь с поддержкой.`);
-    } finally {
-      setIsCreatingFullBrandbook(false);
-    }
-  };
-
+  // Полный брендбук после оплаты собирает сервер, а следит за этим страница
+  // /pages/payment/success — сюда пользователь после оплаты не возвращается
 
   // Функция для генерации демо-брендбука
   const generateDemoBrandbook = async () => {
@@ -109,16 +57,12 @@ function BrandbookGeneratorContent() {
       // Вызов API для генерации демо-брендбука
       const apiUrl = `/api/generate-brandbook`;
 
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           name,
           keywords,
           logoUrl,
-          userId: user.id,
           industry,
           brandStyle: style,
         }),
@@ -140,7 +84,6 @@ function BrandbookGeneratorContent() {
     }
   };
 
-  // Компонент скелетона для состояния загрузки
   const LoadingSkeleton = () => (
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
       <div className="h-8 w-3/4 mx-auto bg-gray-200 animate-pulse rounded-md mb-6"></div>
@@ -168,16 +111,7 @@ function BrandbookGeneratorContent() {
             </div>
 
             <div className="mt-12 max-w-6xl mx-auto">
-              {isCreatingFullBrandbook && (
-                <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Платеж успешен!</h2>
-                  <p className="text-gray-700">Создаем ваш полный брендбук... Это может занять несколько минут.</p>
-                  <p className="text-gray-500 text-sm mt-2">Пожалуйста, не закрывайте эту страницу.</p>
-                </div>
-              )}
-
-              {!isCreatingFullBrandbook && (!mounted || isAuthLoading ? (
+              {!mounted || isAuthLoading ? (
                 <LoadingSkeleton />
               ) : error ? (
                 <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
@@ -332,7 +266,7 @@ function BrandbookGeneratorContent() {
                         {brandbook.logoVariants.map((variant: any, index: number) => (
                           <div key={index} className="text-center">
                             <div className={`
-                              ${variant.type === 'inverted' ? 'bg-gray-900' : 'bg-gray-50'} 
+                              ${variant.onDark ? 'bg-gray-900' : 'bg-gray-50'} 
                               border border-gray-200 rounded-lg p-6 mb-3 min-h-32 flex items-center justify-center
                             `}>
                               <div className="relative">
@@ -696,7 +630,7 @@ function BrandbookGeneratorContent() {
                           }}
                           className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                         >
-                          Заказать полный брендбук - 999 ₽
+                          Заказать полный брендбук - {PRICES.brandbook} ₽
                         </Link>
                         
                         <Link
@@ -715,7 +649,7 @@ function BrandbookGeneratorContent() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </section>

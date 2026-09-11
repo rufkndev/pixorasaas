@@ -1,90 +1,101 @@
-import express from 'express';
-import nodemailer from 'nodemailer';
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 
-const router = express.Router();
+import { consentsRepo } from '../db/repositories';
+import { LEGAL_VERSIONS } from '../legal';
+import { contactSchema, firstError } from '../auth/schemas';
+import { clientMeta } from '../auth/service';
+import { optionalAuth } from '../auth/middleware';
+import { mailService } from '../services/mailService';
+import { escapeHtml, escapeHtmlMultiline } from '../utils/html';
+import { renderLayout } from '../emails/layout';
 
-// Настройка транспорта для отправки email
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'arttaranovbusiness@gmail.com',
-      pass: process.env.EMAIL_PASSWORD // App password для Gmail
-    }
-  });
-};
+const router = Router();
 
-// Маршрут для отправки контактного сообщения
-router.post('/send-contact', async (req, res) => {
+// Форма открыта всем, поэтому лимит жёсткий: иначе через неё можно рассылать
+// письма на любые адреса от нашего домена.
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Слишком много сообщений. Попробуйте позже.' },
+});
+
+router.post('/send-contact', contactLimiter, optionalAuth, async (req: any, res: any) => {
+  const parsed = contactSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstError(parsed.error) });
+  }
+
+  const { name, email, message } = parsed.data;
+  const meta = clientMeta(req);
+
+  const recipient = process.env.CONTACT_EMAIL;
+
+  if (!recipient) {
+    console.error('CONTACT_EMAIL не задан — сообщение из формы отправить некуда');
+    return res.status(500).json({ error: 'Форма временно недоступна' });
+  }
+
   try {
-    const { name, email, message } = req.body;
+    // Фиксируем до отправки: обращение уже содержит имя и email
+    await consentsRepo.record({
+      userId: req.user?.id ?? null,
+      subject: email,
+      kind: 'pdn',
+      docVersion: LEGAL_VERSIONS.pdn,
+      source: 'contact_form',
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
 
-    // Валидация данных
-    if (!name || !email || !message) {
-      return res.status(400).json({ 
-        error: 'Все поля обязательны для заполнения' 
-      });
-    }
+    // Без экранирования чужая разметка попадёт и в наше письмо,
+    // и в подтверждение на указанный отправителем адрес
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeMessage = escapeHtmlMultiline(message);
 
-    // Проверка валидности email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ 
-        error: 'Некорректный email адрес' 
-      });
-    }
+    // Письмо владельцу
+    await mailService.send({
+      to: recipient,
+      replyTo: email,
+      subject: `Новое сообщение с сайта — ${name}`,
+      html: renderLayout({
+        title: 'Новое сообщение из формы обратной связи',
+        body: `
+          <strong>Имя:</strong> ${safeName}<br>
+          <strong>Email:</strong> ${safeEmail}<br><br>
+          <strong>Сообщение:</strong><br>
+          ${safeMessage}
+        `,
+      }),
+      text: `Имя: ${name}\nEmail: ${email}\n\nСообщение:\n${message}`,
+    });
 
-    const transporter = createTransporter();
-
-    // Настройка письма
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'arttaranovbusiness@gmail.com',
-      to: 'arttaranovbusiness@gmail.com', // Адрес получателя
-      subject: `Новое сообщение от ${name} - Pixora Contact Form`,
-      html: `
-        <h2>Новое сообщение с формы контактов</h2>
-        <p><strong>Имя:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Сообщение:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-        <hr>
-        <p><small>Это сообщение было отправлено с сайта Pixora</small></p>
-      `,
-      // Также отправляем копию отправителю для подтверждения
-      replyTo: email
-    };
-
-    // Отправка email
-    await transporter.sendMail(mailOptions);
-
-    // Отправка подтверждения отправителю
-    const confirmationMailOptions = {
-      from: process.env.EMAIL_USER || 'arttaranovbusiness@gmail.com',
+    // Подтверждение отправителю. Сбой здесь не повод просить его писать снова.
+    await mailService.sendQuietly({
       to: email,
-      subject: 'Подтверждение получения сообщения - Pixora',
-      html: `
-        <h2>Спасибо за ваше сообщение!</h2>
-        <p>Здравствуйте, ${name}!</p>
-        <p>Мы получили ваше сообщение и обязательно свяжемся с вами в ближайшее время.</p>
-        <p><strong>Ваше сообщение:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-        <hr>
-        <p>С уважением,<br>Команда Pixora</p>
-      `
-    };
-
-    await transporter.sendMail(confirmationMailOptions);
-
-    res.json({ 
-      success: true, 
-      message: 'Сообщение успешно отправлено' 
+      subject: 'Мы получили ваше сообщение — Pixora',
+      html: renderLayout({
+        title: 'Спасибо за обращение',
+        body: `
+          ${safeName}, здравствуйте!<br><br>
+          Мы получили ваше сообщение и ответим в течение рабочего дня.<br><br>
+          <strong>Текст обращения:</strong><br>
+          ${safeMessage}
+        `,
+        footerNote: 'Это письмо отправлено автоматически, отвечать на него не нужно.',
+      }),
+      text: `${name}, здравствуйте!\n\nМы получили ваше сообщение и ответим в течение рабочего дня.\n\nТекст обращения:\n${message}`,
     });
 
-  } catch (error) {
-    res.status(500).json({ 
-      error: 'Ошибка при отправке сообщения. Попробуйте позже.' 
-    });
+    return res.status(200).json({ success: true, message: 'Сообщение отправлено' });
+  } catch (error: any) {
+    console.error('Ошибка отправки сообщения из формы:', error.message);
+    return res.status(500).json({ error: 'Не удалось отправить сообщение' });
   }
 });
 
-export default router; 
+export default router;

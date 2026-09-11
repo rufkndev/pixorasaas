@@ -4,7 +4,17 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoginButton from '../../components/auth/LoginButton';
+import { apiFetch } from '../../lib/authClient';
 import { useRouter } from 'next/navigation';
+import GenerationQuota, { QuotaLimits } from '../common/GenerationQuota';
+
+// Столько же принимает generateNamesSchema на бэкенде
+const FIELD_MAX_LENGTH = 100;
+
+interface NameSuggestion {
+  name: string;
+  meaning: string;
+}
 
 export default function NameGenerator() {
   const router = useRouter();
@@ -12,62 +22,121 @@ export default function NameGenerator() {
   const [keywords, setKeywords] = useState('');
   const [industry, setIndustry] = useState('');
   const [style, setStyle] = useState('');
+  const [language, setLanguage] = useState('any');
   const [preferences, setPreferences] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedNames, setGeneratedNames] = useState<string[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [suggestions, setSuggestions] = useState<NameSuggestion[]>([]);
+  // Копится между заходами, чтобы «Ещё варианты» не приносили уже показанное
+  const [shownNames, setShownNames] = useState<string[]>([]);
   const [selectedName, setSelectedName] = useState('');
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  // null — остаток ещё не известен (не загружен или запрос не удался)
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [limits, setLimits] = useState<QuotaLimits | null>(null);
 
-  // Предотвращаем гидратацию, устанавливая mounted только после первого рендера
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Функция для генерации названий через API
+  useEffect(() => {
+    if (!user) {
+      setRemaining(null);
+      return;
+    }
+
+    // Остаток — справочная информация, его недоступность не мешает генерации
+    apiFetch('/api/generation-limits')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) {
+          setRemaining(data.names);
+          setLimits(data);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const requestNames = async (exclude: string[]): Promise<NameSuggestion[]> => {
+    // Пользователя сервер берёт из сессии, поэтому userId не передаём
+    const response = await apiFetch('/api/generate-names', {
+      method: 'POST',
+      body: JSON.stringify({ industry, keywords, style, preferences, language, exclude }),
+    });
+
+    const data = await response.json();
+
+    if (typeof data.remaining === 'number') {
+      setRemaining(data.remaining);
+    }
+
+    if (!response.ok) {
+      const failure: any = new Error(data.error || 'Ошибка при генерации названий');
+      failure.code = data.code;
+      throw failure;
+    }
+
+    return data.names;
+  };
+
+  // Сообщение о лимите уже готово к показу, приставка про ошибку тут лишняя
+  const describeFailure = (err: any, prefix: string): string =>
+    err?.code === 'GENERATION_LIMIT' ? err.message : `${prefix}: ${err.message}`;
+
   const generateNames = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!user) {
       setError('Пожалуйста, войдите в систему, чтобы сгенерировать названия');
       return;
     }
-    
+
     if (!industry || !keywords || !style) {
       setError('Пожалуйста, заполните все обязательные поля');
       return;
     }
-    
+
     setIsGenerating(true);
-    
+
     try {
-      const response = await fetch('/api/generate-names', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          industry,
-          keywords,
-          style,
-          preferences,
-          userId: user.id
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Ошибка при генерации названий');
-      }
-      
-      setGeneratedNames(data.names);
+      const names = await requestNames([]);
+      setSuggestions(names);
+      setShownNames(names.map(item => item.name));
     } catch (err: any) {
-      setError(`Произошла ошибка при генерации названий: ${err.message}`);
+      setError(describeFailure(err, 'Произошла ошибка при генерации названий'));
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const loadMoreNames = async () => {
+    setError('');
+    setIsLoadingMore(true);
+
+    try {
+      // Схема на бэкенде принимает не больше 60 исключений, шлём только свежие
+      const names = await requestNames(shownNames.slice(-48));
+      if (names.length === 0) {
+        setError('Новых вариантов не нашлось — попробуйте изменить ключевые слова или стиль');
+        return;
+      }
+      setSuggestions([...suggestions, ...names]);
+      setShownNames([...shownNames, ...names.map(item => item.name)]);
+    } catch (err: any) {
+      setError(describeFailure(err, 'Не удалось получить новые варианты'));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const startOver = () => {
+    setSuggestions([]);
+    setShownNames([]);
+    setSelectedName('');
+    setError('');
   };
 
   const handleNameSelection = (name: string) => {
@@ -80,7 +149,10 @@ export default function NameGenerator() {
     }
   };
 
-  // Компонент скелетона для состояния загрузки
+  const RemainingHint = () => (
+    <GenerationQuota remaining={remaining} limits={limits} kind="names" />
+  );
+
   const LoadingSkeleton = () => (
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
       <div className="h-8 w-3/4 mx-auto bg-gray-200 animate-pulse rounded-md mb-6"></div>
@@ -116,8 +188,10 @@ export default function NameGenerator() {
             </div>
           ) : isAuthLoading ? (
             <LoadingSkeleton />
-          ) : generatedNames.length === 0 ? (
+          ) : suggestions.length === 0 ? (
             <form onSubmit={generateNames} className="space-y-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <RemainingHint />
+
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
                   {error}
@@ -134,6 +208,7 @@ export default function NameGenerator() {
                     id="industry"
                     value={industry}
                     onChange={(e) => setIndustry(e.target.value)}
+                    maxLength={FIELD_MAX_LENGTH}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
                     placeholder="Например: IT, здравоохранение, образование, строительство, ресторан, салон красоты"
                     required
@@ -151,6 +226,7 @@ export default function NameGenerator() {
                     id="keywords"
                     value={keywords}
                     onChange={(e) => setKeywords(e.target.value)}
+                    maxLength={FIELD_MAX_LENGTH}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
                     placeholder="Например: инновации, технологии, финансы, премиальный, элитный, минималистичный"
                     required
@@ -181,6 +257,24 @@ export default function NameGenerator() {
               </div>
 
               <div>
+                <label htmlFor="language" className="block text-sm font-medium text-gray-700">
+                  Написание названий
+                </label>
+                <div className="mt-1">
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
+                  >
+                    <option value="any">Без разницы</option>
+                    <option value="cyrillic">Кириллица</option>
+                    <option value="latin">Латиница</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
                 <label htmlFor="preferences" className="block text-sm font-medium text-gray-700">
                   Дополнительная информация
                 </label>
@@ -190,16 +284,18 @@ export default function NameGenerator() {
                     value={preferences}
                     onChange={(e) => setPreferences(e.target.value)}
                     rows={3}
+                    maxLength={FIELD_MAX_LENGTH}
                     className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
                     placeholder="Любая дополнительная информация"
                   />
+                  <p className="mt-1 text-xs text-gray-500">{preferences.length}/{FIELD_MAX_LENGTH}</p>
                 </div>
               </div>
 
               <div>
                 <button
                   type="submit"
-                  disabled={isGenerating}
+                  disabled={isGenerating || remaining === 0}
                   className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
                 >
                   {isGenerating ? (
@@ -219,31 +315,50 @@ export default function NameGenerator() {
           ) : (
             <div className="space-y-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Выберите название, которое вам нравится:</h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {generatedNames.map((name, index) => (
-                  <div 
+
+              <RemainingHint />
+
+              {error && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {suggestions.map((suggestion, index) => (
+                  <div
                     key={index}
-                    onClick={() => handleNameSelection(name)}
+                    onClick={() => handleNameSelection(suggestion.name)}
                     className={`p-4 border rounded-md cursor-pointer transition-colors ${
-                      selectedName === name 
-                        ? 'border-gray-700 bg-gray-100' 
+                      selectedName === suggestion.name
+                        ? 'border-gray-700 bg-gray-100'
                         : 'border-gray-300 hover:border-gray-500'
                     }`}
                   >
-                    <p className="text-center font-medium">{name}</p>
+                    <p className="text-center font-medium">{suggestion.name}</p>
+                    {suggestion.meaning && (
+                      <p className="mt-1 text-center text-xs text-gray-500">{suggestion.meaning}</p>
+                    )}
                   </div>
                 ))}
               </div>
-              
+
+              <button
+                onClick={loadMoreNames}
+                disabled={isLoadingMore || remaining === 0}
+                className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+              >
+                {isLoadingMore ? 'Подбираем новые варианты...' : 'Ещё варианты'}
+              </button>
+
               <div className="flex justify-between pt-4">
                 <button
-                  onClick={() => setGeneratedNames([])}
+                  onClick={startOver}
                   className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 >
                   Назад
                 </button>
-                
+
                 <button
                   onClick={proceedToNextStep}
                   disabled={!selectedName}

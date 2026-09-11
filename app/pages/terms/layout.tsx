@@ -1,21 +1,13 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Пользовательское соглашение - Pixora Labs',
-  description: 'Условия использования сервиса Pixora Labs. Права и обязанности при создании логотипов и брендбуков с помощью искусственного интеллекта.',
-  robots: {
-    index: true,
-    follow: false,
-  },
-  alternates: {
-    canonical: 'https://pixora-labs.ru/pages/terms',
-  },
+  title: 'Пользовательское соглашение — Pixora',
+  description:
+    'Правила использования сайта и сервисов Pixora Labs: учётная запись, права на результаты генерации, ограничение ответственности, порядок разрешения споров.',
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://pixora-ai.ru/pages/terms' },
 };
 
-export default function TermsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function TermsLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

@@ -1,159 +1,84 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
-import { createSupabaseClient, resetSupabaseClient } from '../lib/supabase';
-import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import { AuthUser, authApi } from '../lib/authClient';
 
-// Определяем структуру контекста аутентификации
-// Этот интерфейс описывает все данные и функции, которые будут доступны через контекст
 type AuthContextType = {
-  user: User | null;        // Информация о текущем пользователе
-  session: Session | null;  // Текущая сессия пользователя
-  isLoading: boolean;      // Флаг загрузки (для отображения состояния загрузки)
-  signOut: () => Promise<void>; // Функция для выхода из системы
+  user: AuthUser | null;
+  isLoading: boolean;
+  signIn: (email: string, password: string) => Promise<AuthUser>;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
-// Создаем контекст с начальными значениями
-// Эти значения будут использоваться, если компонент не обернут в AuthProvider
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
   isLoading: true,
+  signIn: async () => {
+    throw new Error('AuthProvider не смонтирован');
+  },
   signOut: async () => {},
+  refreshUser: async () => {},
 });
 
-
-// Хук для использования контекста аутентификации в компонентах
 export const useAuth = () => useContext(AuthContext);
 
-// Провайдер контекста аутентификации
-// Этот компонент должен обернуть все приложение или его часть, где требуется доступ к данным аутентификации
+// Сессия в httpOnly-куках, поэтому источник истины — сервер:
+// при монтировании спрашиваем /api/auth/me и ничего не кэшируем.
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Состояния для хранения данных пользователя и сессии
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Создаем клиент Supabase только один раз при монтировании компонента
-  const supabase = useMemo(() => createSupabaseClient(), []);
 
-  // Эффект для инициализации аутентификации и подписки на изменения
-  useEffect(() => {
-    let mounted = true; // Флаг для предотвращения утечек памяти
-
-    // Функция для получения текущей сессии
-    const getSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          throw error;
-        }
-        
-        // Обновляем состояние только если компонент все еще смонтирован
-        if (mounted) {
-          if (session) {
-            setSession(session);
-            setUser(session.user);
-          }
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error getting session:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // Получаем начальную сессию
-    getSession();
-
-    // Подписываемся на изменения состояния аутентификации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setIsLoading(false);
-        }
-      }
-    );
-
-    // Функция очистки при размонтировании компонента
-    return () => {
-      mounted = false; // Предотвращаем обновление состояния после размонтирования
-      subscription.unsubscribe(); // Отписываемся от событий аутентификации
-    };
-  }, [supabase]);
-
-   /* Функция для выхода пользователя из системы
-   * Выполняет полную очистку данных аутентификации:
-   * 1. Очищает локальное состояние
-   * 2. Выходит из Supabase
-   * 3. Очищает серверные куки
-   * 4. Сбрасывает клиент Supabase
-   * 5. Перенаправляет на главную страницу */
-  const signOut = async () => {
+  const refreshUser = useCallback(async () => {
     try {
-      setIsLoading(true);
-      
-      // 1. Очистка состояния
-      setUser(null);
-      setSession(null);
-      
-      // 2. Выход из Supabase
-      try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          console.error('Error during Supabase signOut:', error);
-        } else {
-        }
-      } catch (supabaseError) {
-        console.error('Supabase signOut error:', supabaseError);
-      }
-      
-      // 3. Вызов серверного обработчика для очистки куков
-      try {
-        const response = await fetch('/auth/signout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store'
-        });
-        
-        if (response.ok) {
-        } else {
-          console.warn('AuthContext: Server-side sign out failed');
-        }
-      } catch (fetchError) {
-        console.error('Error calling server-side sign out:', fetchError);
-      }
-      
-      // 4. Сбрасываем экземпляр клиента Supabase
-      resetSupabaseClient();
-      
-      // Используем простой редирект вместо сложной логики
-      window.location.href = '/';
-      
+      setUser(await authApi.me());
     } catch (error) {
-      console.error('Error signing out:', error);
-      // В случае ошибки все равно перенаправляем на главную
-      window.location.href = '/';
-    } finally {
-      setIsLoading(false);
+      console.error('Не удалось получить профиль:', error);
+      setUser(null);
     }
-  };
+  }, []);
 
-  // Значения, которые будут доступны через контекст
-  const value = {
-    user,
-    session,
-    isLoading,
-    signOut,
-  };
+  useEffect(() => {
+    let mounted = true;
 
-  // Оборачиваем дочерние компоненты в провайдер контекста
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-} 
+    (async () => {
+      try {
+        const current = await authApi.me();
+        if (mounted) setUser(current);
+      } catch (error) {
+        console.error('Не удалось получить профиль:', error);
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { user: signedIn } = await authApi.login({ email, password });
+    setUser(signedIn);
+    return signedIn;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      // Даже при ошибке уводим пользователя из кабинета
+      console.error('Ошибка выхода:', error);
+    } finally {
+      setUser(null);
+      window.location.href = '/';
+    }
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading, signIn, signOut, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}

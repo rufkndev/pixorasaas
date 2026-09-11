@@ -6,10 +6,23 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import { useAuth } from '../../context/AuthContext';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { apiFetch } from '../../lib/authClient';
+import BuildProgress, { BuildProgressData } from '../../components/common/BuildProgress';
 import React from 'react';
 
-// Стили для иконок
+// Реже, чем на странице оплаты: сюда попадают и после сборки, опрос нужен
+// только тем, кто открыл заказ, пока он ещё собирается
+const BUILD_POLL_MS = 4000;
+
+// Разделы правил идут списками строк одного вида, поэтому рисуются циклом
+const RULE_SECTIONS = [
+  { key: 'logoRules', title: 'Логотип' },
+  { key: 'misuse', title: 'Чего делать нельзя' },
+  { key: 'colorRules', title: 'Цвет' },
+  { key: 'typographyRules', title: 'Типографика' },
+] as const;
+
 const iconStyles = `
   .icon-display svg {
     width: 100% !important;
@@ -19,7 +32,6 @@ const iconStyles = `
   }
 `;
 
-// Добавляем стили в head
 if (typeof document !== 'undefined') {
   const styleElement = document.createElement('style');
   styleElement.textContent = iconStyles;
@@ -29,25 +41,30 @@ if (typeof document !== 'undefined') {
 function BrandbookContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: isAuthLoading } = useAuth();
-  
+  const { user, isLoading: isAuthLoading } = useRequireAuth();
+
   // Получаем данные из URL параметров
   const orderId = searchParams.get('orderId') || '';
   
   // Состояние для загрузки брендбука
   const [isLoading, setIsLoading] = useState(true);
   const [brandbook, setBrandbook] = useState<any>(null);
+  const [build, setBuild] = useState<BuildProgressData | null>(null);
+  const [loadError, setLoadError] = useState('');
   const [mounted, setMounted] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  // Функция для загрузки Google Fonts
-  const loadGoogleFonts = (fonts: any[]) => {
+  // Шрифты грузятся с нашего домена, а не с fonts.googleapis.com: помимо
+  // доступности без VPN это убирает передачу IP посетителя в Google
+  const loadBrandFonts = (fonts: any[]) => {
     if (!fonts || fonts.length === 0) return;
-    
+
     const fontUrls = fonts
-      .filter(font => font.googleFontUrl)
-      .map(font => font.googleFontUrl);
-    
+      .map(font => font.cssUrl)
+      .filter(Boolean);
+
     // Удаляем предыдущие ссылки на шрифты
     document.querySelectorAll('link[data-font-loader]').forEach(link => link.remove());
     
@@ -61,15 +78,12 @@ function BrandbookContent() {
     });
   };
 
-  // Загрузка данных брендбука
-  const loadBrandbook = async (userId: string) => {
-    setIsLoading(true);
-    
+  // isLoading здесь не поднимаем: начальное значение уже true, а повторные
+  // опросы во время сборки иначе мигали бы спиннером поверх готовых шагов
+  const loadBrandbook = async () => {
     try {
-      // Загружаем данные брендбука из API
-      const apiUrl = `/api/generate-brandbook/brandbook/${orderId}?userId=${userId}`;
-      
-      const response = await fetch(apiUrl);
+      // Владельца брендбука сервер определяет по сессии
+      const response = await apiFetch(`/api/generate-brandbook/brandbook/${orderId}`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -86,9 +100,11 @@ function BrandbookContent() {
           variants: (data.brandbook.logoVariants || []).map((variant: any) => ({
             name: variant.name,
             url: variant.url,
-            type: variant.type,
+            kind: variant.kind,
             description: variant.description,
-            usage: variant.usage
+            usage: variant.usage,
+            // Выворотку показываем на тёмном: на белом её просто не видно
+            onDark: !!variant.onDark
           }))
         },
         colors: data.brandbook.colorPalette || [],
@@ -102,30 +118,30 @@ function BrandbookContent() {
         },
         applications: data.brandbook.applications || [],
         createdAt: data.brandbook.createdAt,
-        downloadLinks: {
-          logoPackage: '/downloads/logo-package.zip',
-          colorPalette: '/downloads/color-palette.ase',
-          fonts: '/downloads/fonts.zip',
-          fullBrandbook: '/downloads/brandbook-full.pdf'
-        }
       };
       
       setBrandbook(transformedBrandbook);
-      
-      // Загружаем Google Fonts для шрифтов брендбука
+      setBuild(data.brandbook.build || null);
+      setLoadError('');
+
       if (data.brandbook.fonts && data.brandbook.fonts.length > 0) {
-        loadGoogleFonts(data.brandbook.fonts);
+        loadBrandFonts(data.brandbook.fonts);
       }
-    } catch (error) {
+
+      return data.brandbook.build?.status as string | undefined;
+    } catch (error: any) {
+      // Раньше любая ошибка уводила на главную — вместе с ней уходил и
+      // оплаченный заказ, который просто ещё собирался. Неавторизованного
+      // уводит useRequireAuth, остальным показываем причину.
       console.error('Error loading brandbook:', error);
-      router.push('/');
+      setLoadError(error?.message || 'Не удалось загрузить брендбук');
+      return undefined;
     } finally {
       setIsLoading(false);
     }
   };
 
-
-  // Предотвращаем гидратацию и загружаем данные
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
 
@@ -138,31 +154,61 @@ function BrandbookContent() {
       return;
     }
 
-    if (user) {
-      loadBrandbook(user.id);
-    } else {
-      // Если пользователь не авторизован, можно перенаправить на страницу входа
-      router.push('/pages/login'); 
-    }
+    // Неавторизованного уводит на вход useRequireAuth
+    if (!user) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    // Пока идёт сборка, страница перезапрашивает заказ: шаги дописываются в
+    // строку по мере готовности, и покупатель видит их без перезагрузки
+    const tick = async () => {
+      const status = await loadBrandbook();
+
+      if (cancelled || status !== 'processing') return;
+
+      timer = setTimeout(tick, BUILD_POLL_MS);
+    };
+
+    tick();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [mounted, orderId, user, isAuthLoading, router]);
 
+  // Один архив вместо трёх кнопок. Качаем через apiFetch, а не ссылкой:
+  // при неоплаченном или недособранном заказе роут отвечает JSON, и по
+  // прямой ссылке пользователь увидел бы его текстом в новой вкладке.
+  const downloadArchive = async () => {
+    setDownloadError(null);
+    setIsDownloading(true);
 
-  // Функция скачивания файлов
-  const downloadFile = (type: string) => {
-    const apiUrl = 'https://www.pixora-labs.ru';
-    
-    // Разделяем тип и параметры запроса
-    const [endpoint, queryParams] = type.split('?');
-    const baseUrl = `${apiUrl}/api/download-${endpoint}/${orderId}`;
-    const fullUrl = queryParams ? `${baseUrl}?userId=${user?.id}&${queryParams}` : `${baseUrl}?userId=${user?.id}`;
-    
-    // Создаем временную ссылку для скачивания
-    const link = document.createElement('a');
-    link.href = fullUrl;
-    link.download = `${brandbook.businessName}_${endpoint}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const response = await apiFetch(`/api/download-brandbook/${orderId}`);
+
+      if (!response.ok) {
+        const details = await response.json().catch(() => ({}));
+        setDownloadError(details.message || details.error || 'Не удалось скачать архив');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download = `${brandbook.businessName}-brandbook.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      setDownloadError(error?.message || 'Не удалось скачать архив');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (!mounted || isAuthLoading || isLoading) {
@@ -187,14 +233,33 @@ function BrandbookContent() {
     );
   }
 
+  // Заказ оплачен, но сборка ещё идёт: показываем шаги, а не «не найден».
+  // Раньше страница в этот момент уводила покупателя на главную.
+  if (brandbook && build && build.status === 'processing') {
+    return (
+      <>
+        <Navbar />
+        <main className="pt-16">
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="bg-white rounded-lg shadow-md p-8 max-w-lg w-full mx-4">
+              <BuildProgress build={build} title={`Собираем брендбук «${brandbook.businessName}»`} />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   if (!brandbook) {
     return (
       <>
         <Navbar />
         <main className="pt-16">
           <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
+            <div className="text-center px-4">
               <h1 className="text-2xl font-bold text-gray-900 mb-4">Брендбук не найден</h1>
+              {loadError && <p className="text-gray-600 mb-4">{loadError}</p>}
               <Link href="/" className="text-blue-600 hover:text-blue-800">
                 Вернуться на главную
               </Link>
@@ -220,7 +285,6 @@ function BrandbookContent() {
     <>
       <Navbar />
       <main className="pt-16">
-        {/* Заголовок */}
         <section className="bg-gradient-to-r from-gray-900 to-gray-700 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
@@ -243,6 +307,20 @@ function BrandbookContent() {
               <p className="text-gray-300">
                 Заказ #{brandbook.id} • Создан {new Date(brandbook.createdAt).toLocaleDateString('ru-RU')}
               </p>
+
+              <div className="mt-8">
+                <button
+                  onClick={downloadArchive}
+                  disabled={isDownloading}
+                  className="bg-white text-gray-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-60"
+                >
+                  {isDownloading ? 'Собираем архив…' : 'Скачать всё одним архивом'}
+                </button>
+                <p className="text-gray-400 text-sm mt-3">
+                  PDF, логотип, шрифты, иконки и макеты носителей
+                </p>
+                {downloadError && <p className="text-red-300 text-sm mt-2">{downloadError}</p>}
+              </div>
             </div>
           </div>
         </section>
@@ -297,29 +375,13 @@ function BrandbookContent() {
               {activeSection === 'logo' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900">Варианты логотипа</h2>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => downloadFile(`logo-variants`)}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Скачать PNG
-                        </button>
-                        <button
-                          onClick={() => downloadFile(`logo-variants?format=both`)}
-                          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-                        >
-                          Скачать всё
-                        </button>
-                      </div>
-                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Варианты логотипа</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                       {brandbook.logo.variants.map((variant: any, index: number) => (
                         <div key={index} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow">
                           <div className={`
                             p-8 flex items-center justify-center min-h-48 
-                            ${variant.type === 'inverted' ? 'bg-gray-900' : 'bg-gray-50'}
+                            ${variant.onDark ? 'bg-gray-900' : 'bg-gray-50'}
                           `}>
                             <Image
                               src={variant.url}
@@ -388,38 +450,48 @@ function BrandbookContent() {
                       <div className="space-y-8">
                         {brandbook.fonts.map((font: any, index: number) => (
                           <div key={index} className="border border-gray-200 rounded-lg p-6">
-                            <div className="mb-4">
-                              <h3 className="text-xl font-bold text-gray-900">{font.name}</h3>
-                              <p className="text-sm text-gray-600 mt-1">
-                                {font.type === 'primary' ? 'Основной шрифт для заголовков' : 
-                                 font.type === 'secondary' ? 'Дополнительный шрифт для текста' : 
-                                 'Альтернативный шрифт'}
-                              </p>
+                            <div className="mb-4 flex items-start justify-between gap-4">
+                              <div>
+                                <h3 className="text-xl font-bold text-gray-900">{font.family}</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {font.role === 'heading'
+                                    ? 'Заголовочный шрифт'
+                                    : 'Текстовый шрифт'}
+                                </p>
+                              </div>
+                              {/* Совпадение со шрифтом логотипа стоит показать прямо:
+                                  это главный признак связности брендбука */}
+                              {font.matchesLogo && (
+                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 whitespace-nowrap">
+                                  Как в логотипе
+                                </span>
+                              )}
                             </div>
-                            
+
                             <div className="space-y-3">
+                              <p className="text-gray-700 text-sm">{font.usage}</p>
                               <p className="text-gray-700 text-sm">
-                                <strong>Семейство:</strong> {font.family}
+                                <strong>Начертания:</strong> {(font.weights || []).join(', ')}
                               </p>
                               <p className="text-gray-700 text-sm">
-                                <strong>Категория:</strong> {font.category}
+                                <strong>Лицензия:</strong> {font.licence} — шрифт можно
+                                использовать в коммерческих проектах, файлы лежат в архиве
                               </p>
-                              <p className="text-gray-700 text-sm">
-                                <strong>Доступные начертания:</strong> {font.weights.join(', ')}
-                              </p>
-                              
+
                               <div className="space-y-2 mt-4">
-                                <p className="text-3xl font-bold" style={{ fontFamily: font.family }}>
+                                <p className="text-3xl" style={{ fontFamily: font.family, fontWeight: 700 }}>
                                   {brandbook.businessName}
                                 </p>
-                                <p className="text-2xl font-semibold" style={{ fontFamily: font.family }}>
-                                  {brandbook.slogan}
-                                </p>
+                                {brandbook.slogan && (
+                                  <p className="text-2xl" style={{ fontFamily: font.family, fontWeight: 500 }}>
+                                    {brandbook.slogan}
+                                  </p>
+                                )}
                                 <p className="text-xl" style={{ fontFamily: font.family }}>
-                                  АБВГДабвгд 123
+                                  Съешь же ещё этих мягких французских булок
                                 </p>
                                 <p className="text-lg" style={{ fontFamily: font.family }}>
-                                  Качество, надёжность, профессионализм
+                                  АБВГДЕЁЖЗ абвгдеёжз 0123456789
                                 </p>
                               </div>
                             </div>
@@ -439,17 +511,7 @@ function BrandbookContent() {
               {activeSection === 'icons' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900">Фирменные иконки и элементы</h2>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => downloadFile(`icons`)}
-                          className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                        >
-                          Скачать иконки (SVG)
-                        </button>
-                      </div>
-                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Фирменные иконки и графика</h2>
                     
                     {brandbook.icons && Array.isArray(brandbook.icons) && brandbook.icons.length > 0 ? (
                       <div className="space-y-8">
@@ -460,15 +522,12 @@ function BrandbookContent() {
                             {brandbook.icons.filter((icon: any) => icon.category === 'icon').map((icon: any, index: number) => (
                               <div key={index} className="text-center border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
                                 <div className="w-20 h-20 mx-auto bg-gray-50 rounded-lg flex items-center justify-center mb-3 hover:bg-gray-100 transition-colors">
-                                  <div 
-                                    className="w-16 h-16 icon-display"
+                                  <div
+                                    className="w-16 h-16 icon-display text-gray-900"
                                     dangerouslySetInnerHTML={{ __html: icon.svg }}
-                                    style={{ filter: 'contrast(1.2)' }}
                                   />
                                 </div>
-                                <h4 className="text-sm font-medium text-gray-900 mb-1">{icon.name}</h4>
-                                <p className="text-xs text-gray-600 mb-2">{icon.description}</p>
-                                <p className="text-xs text-gray-500 italic">{icon.usage}</p>
+                                <h4 className="text-sm font-medium text-gray-900">{icon.name}</h4>
                               </div>
                             ))}
                           </div>
@@ -476,16 +535,15 @@ function BrandbookContent() {
 
                         {/* Фирменные элементы */}
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Фирменные элементы</h3>
+                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Паттерны, разделители, подложки</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {brandbook.icons.filter((icon: any) => icon.category !== 'icon').map((element: any, index: number) => (
                               <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
                                 <div className="flex items-center space-x-4 mb-3">
                                   <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <div 
+                                    <div
                                       className="w-16 h-16 icon-display"
                                       dangerouslySetInnerHTML={{ __html: element.svg }}
-                                      style={{ filter: 'contrast(1.2)' }}
                                     />
                                   </div>
                                   <div className="flex-1">
@@ -495,8 +553,7 @@ function BrandbookContent() {
                                     </span>
                                   </div>
                                 </div>
-                                <p className="text-xs text-gray-600 mb-2">{element.description}</p>
-                                <p className="text-xs text-gray-500 italic">{element.usage}</p>
+                                <p className="text-xs text-gray-500">{element.usage}</p>
                               </div>
                             ))}
                           </div>
@@ -515,372 +572,111 @@ function BrandbookContent() {
               {activeSection === 'guidelines' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Рекомендации по использованию</h2>
-                    
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Рекомендации</h2>
+
                     {brandbook.guidelines ? (
-                      <div className="space-y-10">
-                        {/* Рекомендации по шрифтам */}
-                        {brandbook.guidelines.fonts && brandbook.guidelines.fonts.length > 0 && (
+                      <div className="space-y-8">
+                        {brandbook.guidelines.essence && (
+                          <p className="text-lg text-gray-800 leading-relaxed">
+                            {brandbook.guidelines.essence}
+                          </p>
+                        )}
+
+                        {brandbook.guidelines.audience && (
                           <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-blue-500 mr-3">📝</span>
-                              Фирменные шрифты
-                            </h3>
-                            <div className="space-y-6">
-                              {brandbook.guidelines.fonts.map((font: any, index: number) => (
-                                <div key={index} className="border border-gray-200 rounded-lg p-6">
-                                  <div className="flex items-start justify-between mb-4">
-                                    <div>
-                                      <h4 className="text-lg font-bold text-gray-900" style={{ fontFamily: font.fontFamily }}>
-                                        {font.fontFamily}
-                                      </h4>
-                                      <span className="inline-block px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                                        {font.title}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <p className="text-gray-700 mb-4">{font.description}</p>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Использование:</h5>
-                                      <p className="text-sm text-gray-600 mb-3">{font.usage}</p>
-                                      
-                                      <h5 className="font-semibold text-gray-800 mb-2">Рекомендуемые размеры:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        {font.recommendedSizes.map((size: string, i: number) => (
-                                          <li key={i} className="flex items-center">
-                                            <span className="text-green-500 mr-2">•</span>
-                                            {size}
-                                </li>
-                              ))}
-                            </ul>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Что нельзя делать:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        {font.prohibitions.map((prohibition: string, i: number) => (
-                                          <li key={i} className="flex items-start">
-                                            <span className="text-red-500 mr-2 mt-1">✗</span>
-                                            {prohibition}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div>
-                                        <h6 className="text-sm font-semibold text-green-800 mb-1">✓ Правильно:</h6>
-                                        <p className="text-xs text-gray-600">{font.examples.correct}</p>
-                                      </div>
-                                      <div>
-                                        <h6 className="text-sm font-semibold text-red-800 mb-1">✗ Неправильно:</h6>
-                                        <p className="text-xs text-gray-600">{font.examples.incorrect}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">Кому это нужно</h3>
+                            <p className="text-gray-700">{brandbook.guidelines.audience}</p>
                           </div>
                         )}
-                        
-                        {/* Рекомендации по цветам */}
-                        {brandbook.guidelines.colors && brandbook.guidelines.colors.length > 0 && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-purple-500 mr-3">🎨</span>
-                              Цветовая палитра
-                            </h3>
-                            <div className="space-y-6">
-                              {brandbook.guidelines.colors.map((color: any, index: number) => (
-                                <div key={index} className="border border-gray-200 rounded-lg p-6">
-                                  <div className="flex items-start gap-4 mb-4">
-                                    <div 
-                                      className="w-20 h-20 rounded-lg border border-gray-200"
-                                      style={{ backgroundColor: color.hex }}
-                                    ></div>
-                                    <div className="flex-1">
-                                      <h4 className="text-lg font-bold text-gray-900">{color.colorName}</h4>
-                                      <div className="flex items-center gap-3 text-sm text-gray-600 mb-2">
-                                        <span>{color.hex}</span>
-                                        <span>•</span>
-                                        <span>{color.rgb}</span>
-                                      </div>
-                                      <span className="inline-block px-3 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">
-                                        {color.role}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <p className="text-gray-700 mb-4">{color.description}</p>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Использование:</h5>
-                                      <p className="text-sm text-gray-600 mb-3">{color.usage}</p>
-                                      
-                                      <h5 className="font-semibold text-gray-800 mb-2">Доступность:</h5>
-                                      <div className="text-sm text-gray-600">
-                                        <p>{color.accessibility.contrast}</p>
-                                        <p className="font-medium">WCAG: {color.accessibility.wcag}</p>
-                                      </div>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Ограничения:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        {color.prohibitions.map((prohibition: string, i: number) => (
-                                          <li key={i} className="flex items-start">
-                                            <span className="text-red-500 mr-2 mt-1">✗</span>
-                                            {prohibition}
-                                </li>
-                              ))}
-                            </ul>
-                                    </div>
-                                  </div>
-                                  
-                                  {color.combinations && color.combinations.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                      <h6 className="font-semibold text-gray-800 mb-2">Рекомендуемые сочетания:</h6>
-                                      <div className="flex flex-wrap gap-2">
-                                        {color.combinations.slice(0, 3).map((combo: string, i: number) => (
-                                          <span key={i} className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                                            {combo}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Рекомендации по логотипу */}
-                        {brandbook.guidelines.logo && brandbook.guidelines.logo.length > 0 && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-green-500 mr-3">📐</span>
-                              Логотип и его использование
-                            </h3>
-                            <div className="space-y-6">
-                              {brandbook.guidelines.logo.map((logo: any, index: number) => (
-                                <div key={index} className="border border-gray-200 rounded-lg p-6">
-                                  <h4 className="text-lg font-bold text-gray-900 mb-4">{logo.variant}</h4>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Технические требования:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        <li><strong>Минимальный размер:</strong> {logo.minSize}</li>
-                                        <li><strong>Защитное поле:</strong> {logo.clearSpace}</li>
-                                        <li><strong>Размещение:</strong> {logo.placement.join(', ')}</li>
-                                      </ul>
-                                      
-                                      <h5 className="font-semibold text-gray-800 mb-2 mt-4">Допустимые фоны:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        {logo.allowedBackgrounds.map((bg: string, i: number) => (
-                                          <li key={i} className="flex items-center">
-                                            <span className="text-green-500 mr-2">•</span>
-                                            {bg}
-                                </li>
-                              ))}
-                            </ul>
-                                    </div>
-                                    
-                                    <div>
-                                      <h5 className="font-semibold text-gray-800 mb-2">Запрещено:</h5>
-                                      <ul className="text-sm text-gray-600 space-y-1">
-                                        {logo.prohibitions.map((prohibition: string, i: number) => (
-                                          <li key={i} className="flex items-start">
-                                            <span className="text-red-500 mr-2 mt-1">✗</span>
-                                            {prohibition}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div>
-                                        <h6 className="text-sm font-semibold text-green-800 mb-2">✓ Правильные примеры:</h6>
-                                        <ul className="text-xs text-gray-600 space-y-1">
-                                          {logo.examples.correct.map((example: string, i: number) => (
-                                            <li key={i}>• {example}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                      <div>
-                                        <h6 className="text-sm font-semibold text-red-800 mb-2">✗ Неправильные примеры:</h6>
-                                        <ul className="text-xs text-gray-600 space-y-1">
-                                          {logo.examples.incorrect.map((example: string, i: number) => (
-                                            <li key={i}>• {example}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Рекомендации по иконкам */}
-                        {brandbook.guidelines.icons && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-orange-500 mr-3">⭐</span>
-                              Иконки и элементы
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <p className="text-gray-700 mb-4">{brandbook.guidelines.icons.style}</p>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                  <h5 className="font-semibold text-gray-800 mb-2">Где использовать:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.icons.usage.map((usage: string, i: number) => (
-                                      <li key={i} className="flex items-center">
-                                        <span className="text-green-500 mr-2">•</span>
-                                        {usage}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  
-                                  <h5 className="font-semibold text-gray-800 mb-2 mt-4">Контексты применения:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.icons.contexts.map((context: string, i: number) => (
-                                      <li key={i} className="flex items-center">
-                                        <span className="text-blue-500 mr-2">•</span>
-                                        {context}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                
-                                <div>
-                                  <h5 className="font-semibold text-gray-800 mb-2">Недопустимо:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.icons.prohibitions.map((prohibition: string, i: number) => (
-                                      <li key={i} className="flex items-start">
-                                        <span className="text-red-500 mr-2 mt-1">✗</span>
-                                        {prohibition}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  
-                                  <h5 className="font-semibold text-gray-800 mb-2 mt-4">Правила окраски:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.icons.colorRules.map((rule: string, i: number) => (
-                                      <li key={i} className="flex items-start">
-                                        <span className="text-purple-500 mr-2 mt-1">•</span>
-                                        {rule}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+
+                        {Array.isArray(brandbook.guidelines.personality) &&
+                          brandbook.guidelines.personality.length > 0 && (
+                            <div>
+                              <h3 className="font-semibold text-gray-900 mb-3">Характер</h3>
+                              <div className="flex flex-wrap gap-2">
+                                {brandbook.guidelines.personality.map((trait: string, index: number) => (
+                                  <span
+                                    key={index}
+                                    className="px-3 py-1 rounded-full border border-gray-300 text-sm text-gray-800"
+                                  >
+                                    {trait}
+                                  </span>
+                                ))}
                               </div>
                             </div>
-                          </div>
-                        )}
-                        
-                        {/* Тональность и голос бренда */}
+                          )}
+
+                        {RULE_SECTIONS.map(({ key, title }) => {
+                          const items = brandbook.guidelines?.[key];
+                          if (!Array.isArray(items) || items.length === 0) return null;
+
+                          return (
+                            <div key={key}>
+                              <h3 className="font-semibold text-gray-900 mb-3">{title}</h3>
+                              <ul className="space-y-2">
+                                {items.map((item: string, index: number) => (
+                                  <li key={index} className="flex gap-3 text-gray-700">
+                                    <span className="text-gray-400">—</span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+
                         {brandbook.guidelines.toneOfVoice && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-indigo-500 mr-3">🎭</span>
-                              Тональность и голос бренда
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="mb-6">
-                                <h4 className="text-lg font-bold text-gray-900 mb-3">Характер бренда</h4>
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                  {brandbook.guidelines.toneOfVoice.personality.map((trait: string, i: number) => (
-                                    <span key={i} className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                                      {trait}
-                                    </span>
-                                  ))}
-                                </div>
-                                <p className="text-gray-700">
-                                  Стиль общения: <span className="font-semibold">{brandbook.guidelines.toneOfVoice.style}</span>
-                                </p>
+                          <div className="border-t border-gray-200 pt-8">
+                            <h3 className="font-semibold text-gray-900 mb-3">Голос бренда</h3>
+                            <p className="text-gray-700 mb-4">
+                              {brandbook.guidelines.toneOfVoice.summary}
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">Говорим</h4>
+                                <ul className="space-y-1 text-sm text-gray-700">
+                                  {(brandbook.guidelines.toneOfVoice.doList || []).map(
+                                    (item: string, index: number) => (
+                                      <li key={index}>+ {item}</li>
+                                    )
+                                  )}
+                                </ul>
                               </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                  <h5 className="font-semibold text-gray-800 mb-3">Основные характеристики:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.toneOfVoice.characteristics.map((char: string, i: number) => (
-                                      <li key={i} className="flex items-center">
-                                        <span className="text-indigo-500 mr-2">•</span>
-                                        {char}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                  
-                                  <h5 className="font-semibold text-gray-800 mb-3 mt-4">Рекомендации:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.toneOfVoice.doList.map((item: string, i: number) => (
-                                      <li key={i} className="flex items-start">
-                                        <span className="text-green-500 mr-2 mt-1">✓</span>
-                                        {item}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                
-                                <div>
-                                  <h5 className="font-semibold text-gray-800 mb-3">Чего избегать:</h5>
-                                  <ul className="text-sm text-gray-600 space-y-1">
-                                    {brandbook.guidelines.toneOfVoice.dontList.map((item: string, i: number) => (
-                                      <li key={i} className="flex items-start">
-                                        <span className="text-red-500 mr-2 mt-1">✗</span>
-                                        {item}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                              
-                              <div className="mt-6 pt-6 border-t border-gray-200">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div>
-                                    <h6 className="text-sm font-semibold text-green-800 mb-2">✓ Правильные примеры:</h6>
-                                    <div className="space-y-2">
-                                      {brandbook.guidelines.toneOfVoice.examples.correct.map((example: string, i: number) => (
-                                        <div key={i} className="bg-green-50 border border-green-200 rounded p-2">
-                                          <p className="text-xs text-green-800">{example}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <h6 className="text-sm font-semibold text-red-800 mb-2">✗ Неправильные примеры:</h6>
-                                    <div className="space-y-2">
-                                      {brandbook.guidelines.toneOfVoice.examples.incorrect.map((example: string, i: number) => (
-                                        <div key={i} className="bg-red-50 border border-red-200 rounded p-2">
-                                          <p className="text-xs text-red-800">{example}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">Не говорим</h4>
+                                <ul className="space-y-1 text-sm text-gray-500">
+                                  {(brandbook.guidelines.toneOfVoice.dontList || []).map(
+                                    (item: string, index: number) => (
+                                      <li key={index}>× {item}</li>
+                                    )
+                                  )}
+                                </ul>
                               </div>
                             </div>
+
+                            {brandbook.guidelines.toneOfVoice.examples && (
+                              <div className="mt-6 border border-gray-200 rounded-lg p-4 space-y-3">
+                                <div>
+                                  <p className="text-xs font-semibold text-green-700 mb-1">Так — да</p>
+                                  <p className="text-sm text-gray-800">
+                                    {brandbook.guidelines.toneOfVoice.examples.correct}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-500 mb-1">Так — нет</p>
+                                  <p className="text-sm text-gray-500">
+                                    {brandbook.guidelines.toneOfVoice.examples.incorrect}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">Рекомендации загружаются...</p>
+                        <p className="text-gray-500">Рекомендации ещё собираются…</p>
                       </div>
                     )}
                   </div>
@@ -891,337 +687,41 @@ function BrandbookContent() {
               {activeSection === 'applications' && (
                 <div className="space-y-8">
                   <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900">Примеры применения</h2>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => downloadFile(`applications`)}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          Скачать макеты (SVG)
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {brandbook.applications ? (
-                      <div className="space-y-10">
-                        {/* Визитная карточка */}
-                        {brandbook.applications.businessCard && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-blue-500 mr-3">💼</span>
-                              Визитная карточка
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Макет визитки</h4>
-                                  <div 
-                                    className="border border-gray-300 rounded-lg overflow-hidden"
-                                    dangerouslySetInnerHTML={{ __html: brandbook.applications.businessCard.template }}
-                                  />
-                            </div>
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Спецификации</h4>
-                                  <div className="space-y-3 text-sm">
-                                    <div>
-                                      <span className="font-medium text-gray-700">Размер:</span>
-                                      <span className="text-gray-600 ml-2">85×55 мм (стандарт)</span>
-                          </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Основной цвет:</span>
-                                      <span className="text-gray-600 ml-2">{brandbook.applications.businessCard.primaryColor}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Основной шрифт:</span>
-                                      <span className="text-gray-600 ml-2">{brandbook.applications.businessCard.fontPrimary}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Вспомогательный шрифт:</span>
-                                      <span className="text-gray-600 ml-2">{brandbook.applications.businessCard.fontSecondary}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Размещение логотипа:</span>
-                                      <span className="text-gray-600 ml-2">{brandbook.applications.businessCard.logoPlacement}</span>
-                                    </div>
-                                  </div>
-                                </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Носители</h2>
+                    <p className="text-gray-600 mb-6">
+                      Макеты собраны в рабочих размерах. Исходники, печатные PDF и картинки
+                      лежат в архиве.
+                    </p>
+
+                    {Array.isArray(brandbook.applications) && brandbook.applications.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {brandbook.applications.map((mockup: any) => (
+                          <div key={mockup.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                            {mockup.previewUrl ? (
+                              <img
+                                src={mockup.previewUrl}
+                                alt={mockup.name}
+                                className="w-full bg-white object-contain"
+                              />
+                            ) : (
+                              <div className="bg-gray-50 py-10 text-center text-gray-400 text-sm">
+                                HTML-файл, превью нет
                               </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Презентация */}
-                        {brandbook.applications.presentation && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-green-500 mr-3">📊</span>
-                              Презентация
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="space-y-6">
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Обложка презентации</h4>
-                                  <div 
-                                    className="border border-gray-300 rounded-lg overflow-hidden"
-                                    dangerouslySetInnerHTML={{ __html: brandbook.applications.presentation.coverTemplate }}
-                                  />
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Слайд презентации</h4>
-                                  <div 
-                                    className="border border-gray-300 rounded-lg overflow-hidden"
-                                    dangerouslySetInnerHTML={{ __html: brandbook.applications.presentation.slideTemplate }}
-                                  />
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Рекомендации</h4>
-                                  <ul className="space-y-2 text-sm text-gray-600">
-                                    {brandbook.applications.presentation.guidelines.map((guideline: string, index: number) => (
-                                      <li key={index} className="flex items-start">
-                                        <span className="text-green-500 mr-2 mt-1">•</span>
-                                        {guideline}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-baseline justify-between gap-3">
+                                <h3 className="font-semibold text-gray-900">{mockup.name}</h3>
+                                <span className="text-xs text-gray-500 whitespace-nowrap">{mockup.size}</span>
                               </div>
+                              <p className="text-sm text-gray-600 mt-1">{mockup.description}</p>
+                              <p className="text-xs text-gray-500 mt-2">{mockup.usage}</p>
                             </div>
                           </div>
-                        )}
-                        
-                        {/* Социальные сети */}
-                        {brandbook.applications.socialMedia && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-purple-500 mr-3">📱</span>
-                              Социальные сети
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="space-y-8">
-                                <div className="flex flex-col gap-8 items-center">
-                                  <div className="w-full max-w-md">
-                                    <h4 className="font-semibold text-gray-800 mb-4 text-center">Пост</h4>
-                                    <div 
-                                      className="border border-gray-300 rounded-lg overflow-hidden flex justify-center"
-                                      dangerouslySetInnerHTML={{ __html: brandbook.applications.socialMedia.templates.post }}
-                                    />
-                                  </div>
-                                  <div className="w-full max-w-xs">
-                                    <h4 className="font-semibold text-gray-800 mb-4 text-center">Stories</h4>
-                                    <div 
-                                      className="border border-gray-300 rounded-lg overflow-hidden flex justify-center"
-                                      dangerouslySetInnerHTML={{ __html: brandbook.applications.socialMedia.templates.story }}
-                                    />
-                                  </div>
-                                  <div className="w-full max-w-2xl">
-                                    <h4 className="font-semibold text-gray-800 mb-4 text-center">Обложка</h4>
-                                    <div 
-                                      className="border border-gray-300 rounded-lg overflow-hidden flex justify-center"
-                                      dangerouslySetInnerHTML={{ __html: brandbook.applications.socialMedia.templates.cover }}
-                                    />
-                                  </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div>
-                                    <h5 className="font-semibold text-gray-800 mb-3">Рекомендации по цветам</h5>
-                                    <ul className="text-sm text-gray-600 space-y-1">
-                                      {brandbook.applications.socialMedia.colorGuidelines.map((guideline: string, index: number) => (
-                                        <li key={index} className="flex items-start">
-                                          <span className="text-purple-500 mr-2 mt-1">•</span>
-                                          {guideline}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                  
-                                  <div>
-                                    <h5 className="font-semibold text-gray-800 mb-3">Рекомендации по шрифтам</h5>
-                                    <ul className="text-sm text-gray-600 space-y-1">
-                                      {brandbook.applications.socialMedia.fontGuidelines.map((guideline: string, index: number) => (
-                                        <li key={index} className="flex items-start">
-                                          <span className="text-blue-500 mr-2 mt-1">•</span>
-                                          {guideline}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <h5 className="font-semibold text-gray-800 mb-3">Поддерживаемые платформы</h5>
-                                  <div className="flex flex-wrap gap-2">
-                                    {brandbook.applications.socialMedia.platforms.map((platform: string, index: number) => (
-                                      <span key={index} className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm capitalize">
-                                        {platform}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Email подпись */}
-                        {brandbook.applications.emailSignature && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-orange-500 mr-3">📧</span>
-                              Email подпись
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Шаблон подписи</h4>
-                                  <div 
-                                    className="border border-gray-300 rounded-lg overflow-hidden bg-white"
-                                    dangerouslySetInnerHTML={{ __html: brandbook.applications.emailSignature.template }}
-                                  />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-4">Инструкция по использованию</h4>
-                                  <div className="space-y-3 text-sm text-gray-600">
-                                    <div>
-                                      <span className="font-medium text-gray-700">Основной цвет:</span>
-                                      <span className="ml-2">{brandbook.applications.emailSignature.colors.primary}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Основной шрифт:</span>
-                                      <span className="ml-2">{brandbook.applications.emailSignature.fonts.primary}</span>
-                                    </div>
-                                    <div>
-                                      <span className="font-medium text-gray-700">Вспомогательный шрифт:</span>
-                                      <span className="ml-2">{brandbook.applications.emailSignature.fonts.secondary}</span>
-                                    </div>
-                                    <div className="pt-2">
-                                      <p className="font-medium text-gray-700 mb-2">Рекомендации:</p>
-                                      <ul className="space-y-1">
-                                        <li>• Используйте единый шаблон для всех сотрудников</li>
-                                        <li>• Проверяйте отображение в разных email-клиентах</li>
-                                        <li>• Логотип не должен превышать 60px по высоте</li>
-                                        <li>• Используйте только фирменные цвета</li>
-                                      </ul>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Веб-сайт */}
-                        {brandbook.applications.websiteLanding && (
-                          <div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                              <span className="text-indigo-500 mr-3">🌐</span>
-                              Веб-сайт / Лендинг
-                            </h3>
-                            <div className="border border-gray-200 rounded-lg p-6">
-                              <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  <div>
-                                    <h4 className="font-semibold text-gray-800 mb-3">Хедер</h4>
-                                    <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                                      <p><strong>Макет:</strong> {brandbook.applications.websiteLanding.sections.header.layout}</p>
-                                      <p><strong>Навигация:</strong> {brandbook.applications.websiteLanding.sections.header.navigation}</p>
-                                      <p><strong>Логотип:</strong> {brandbook.applications.websiteLanding.sections.header.logoPlacement}</p>
-                                      <p><strong>Цвета:</strong> {brandbook.applications.websiteLanding.sections.header.colors}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-semibold text-gray-800 mb-3">Главный блок</h4>
-                                    <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                                      <p><strong>Макет:</strong> {brandbook.applications.websiteLanding.sections.hero.layout}</p>
-                                      <p><strong>Кнопка CTA:</strong> {brandbook.applications.websiteLanding.sections.hero.ctaButton}</p>
-                                      <p><strong>Фон:</strong> {brandbook.applications.websiteLanding.sections.hero.backgroundType}</p>
-                                      <p><strong>Цвета:</strong> {brandbook.applications.websiteLanding.sections.hero.colors}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-semibold text-gray-800 mb-3">Контент</h4>
-                                    <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                                      <p><strong>Макет:</strong> {brandbook.applications.websiteLanding.sections.content.layout}</p>
-                                      <p><strong>Иконки:</strong> {brandbook.applications.websiteLanding.sections.content.iconUsage}</p>
-                                      <p><strong>Цвета:</strong> {brandbook.applications.websiteLanding.sections.content.colors}</p>
-                                      <p><strong>Типографика:</strong> {brandbook.applications.websiteLanding.sections.content.typography}</p>
-                                    </div>
-                                  </div>
-                                  
-                                  <div>
-                                    <h4 className="font-semibold text-gray-800 mb-3">Подвал</h4>
-                                    <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                                      <p><strong>Макет:</strong> {brandbook.applications.websiteLanding.sections.footer.layout}</p>
-                                      <p><strong>Логотип:</strong> {brandbook.applications.websiteLanding.sections.footer.logoUsage}</p>
-                                      <p><strong>Цвета:</strong> {brandbook.applications.websiteLanding.sections.footer.colors}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-3">Цветовая схема для сайта</h4>
-                                  <div className="flex flex-wrap gap-4">
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-6 h-6 rounded border border-gray-300"
-                                        style={{ backgroundColor: brandbook.applications.websiteLanding.colorScheme.primary }}
-                                      ></div>
-                                      <span className="text-sm">Основной: {brandbook.applications.websiteLanding.colorScheme.primary}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-6 h-6 rounded border border-gray-300"
-                                        style={{ backgroundColor: brandbook.applications.websiteLanding.colorScheme.secondary }}
-                                      ></div>
-                                      <span className="text-sm">Вспомогательный: {brandbook.applications.websiteLanding.colorScheme.secondary}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-6 h-6 rounded border border-gray-300"
-                                        style={{ backgroundColor: brandbook.applications.websiteLanding.colorScheme.background }}
-                                      ></div>
-                                      <span className="text-sm">Фон: {brandbook.applications.websiteLanding.colorScheme.background}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-6 h-6 rounded border border-gray-300"
-                                        style={{ backgroundColor: brandbook.applications.websiteLanding.colorScheme.text }}
-                                      ></div>
-                                      <span className="text-sm">Текст: {brandbook.applications.websiteLanding.colorScheme.text}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 mb-3">Типографика</h4>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                                      <p className="font-medium text-gray-700">Заголовки</p>
-                                      <p className="text-gray-600">{brandbook.applications.websiteLanding.typography.headings}</p>
-                                    </div>
-                                    <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                                      <p className="font-medium text-gray-700">Основной текст</p>
-                                      <p className="text-gray-600">{brandbook.applications.websiteLanding.typography.body}</p>
-                                    </div>
-                                    <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                                      <p className="font-medium text-gray-700">Кнопки</p>
-                                      <p className="text-gray-600">{brandbook.applications.websiteLanding.typography.buttons}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                        ))}
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <p className="text-gray-500">Примеры применения загружаются...</p>
+                        <p className="text-gray-500">Носители ещё собираются…</p>
                       </div>
                     )}
                   </div>

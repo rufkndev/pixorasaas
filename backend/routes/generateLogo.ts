@@ -1,135 +1,148 @@
 import { Router } from 'express';
 import { logoService } from '../services/logoService';
-import { getSupabaseClient } from '../index';
+import { generationUsageRepo, logosRepo } from '../db/repositories';
+import { requireAuth } from '../auth/middleware';
+import { generateLogoSchema, firstError } from '../auth/schemas';
 
 const router = Router();
 
 // Маршрут для генерации логотипа
-router.post('/generate-logo', async (req: any, res: any) => {
+router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
   try {
-    const { name, keywords, userId, selectedName, industry } = req.body;
+    // Старый клиент шлёт название в selectedName, новый — в name
+    const parsed = generateLogoSchema.safeParse({
+      ...req.body,
+      name: req.body?.name || req.body?.selectedName,
+    });
 
-    // Валидация обязательных полей
-    if (!name && !selectedName) {
-      return res.status(400).json({ 
-        error: 'Name is required',
-        message: 'Business name is required for logo generation'
-      });
-    }
-    
-    if (!keywords) {
-      return res.status(400).json({ 
-        error: 'Keywords are required',
-        message: 'Keywords are required for logo generation'
-      });
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstError(parsed.error) });
     }
 
-    const businessName = selectedName || name;
-    const logoIndustry = industry || 'general';
+    const { name: businessName, keywords, style, exclude } = parsed.data;
+    const logoIndustry = parsed.data.industry || 'general';
+    const userId = req.user.id;
 
-    // Проверка лимита генераций
+    // Списываем попытку до генерации: проверка и списание в одном запросе,
+    // иначе параллельные запросы пролезли бы сверх лимита
+    const remaining = await generationUsageRepo.consume(userId, 'logos');
+
+    if (remaining === null) {
+      return res.status(403).json({
+        error: 'Бесплатные генерации логотипов закончились. Они обновятся автоматически, а оплата логотипа или брендбука возвращает их сразу.',
+        code: 'GENERATION_LIMIT',
+        remaining: 0,
+      });
+    }
+
+    // История нужна, чтобы повторная генерация не выдала тот же знак.
+    // Её недоступность не повод отказывать в генерации
+    let history = { patterns: [] as string[], subjects: [] as string[] };
     try {
-      const supabase = getSupabaseClient();
-      const { data: userStats } = await supabase
-        .from('user_logo_stats')
-        .select('remaining_generations')
-        .eq('user_id', userId)
-        .single();
-        
-      const remainingGenerations = userStats ? userStats.remaining_generations : 10;
-      
-      if (remainingGenerations <= 0) {
-        return res.status(403).json({ 
-          error: 'Generation limit exceeded', 
-          message: 'You have used all your free logo generations. Please purchase a plan to continue.'
-        });
-      }
-    } catch (statsError) {
-      console.error('Error checking user stats:', statsError);
+      history = await logosRepo.recentConcepts(userId, businessName);
+    } catch (historyError: any) {
+      console.error('Не удалось прочитать историю логотипов:', historyError.message);
     }
 
-    // Генерация логотипа
-    const logoUrl = await logoService.generateLogo(businessName, keywords, logoIndustry);
-
-    // Сохранение в базу данных
+    // Генерация логотипа. Наружу уходит только превью с водяным знаком —
+    // чистый файл выдаёт /api/download-logo после проверки оплаты
+    let stored: Awaited<ReturnType<typeof logoService.generateLogo>>;
     try {
-      const supabase = getSupabaseClient();
-      
-      const { data: logoData, error: insertError } = await supabase
-        .from('generated_logos')
-        .insert({
-          user_id: userId,
-          name: selectedName,
-          keywords: keywords,
-          logo_url: logoUrl,
-          industry: logoIndustry,
-          is_paid: false, // По умолчанию логотип не оплачен
-        })
-        .select()
-        .single();
-        
-      if (insertError) {
-        return res.status(200).json({ 
-          success: true,
-          logoUrl: logoUrl,
-          name: businessName,
-          keywords: keywords,
-          industry: logoIndustry,
-          warning: 'Logo generated but could not be saved to database'
-        });
-      }
-      
-      return res.status(200).json({ 
-        success: true,
-        logoId: logoData.id,
-        logoUrl: logoUrl,
+      stored = await logoService.generateLogo(
+        businessName,
+        keywords,
+        logoIndustry,
+        style,
+        history.patterns,
+        [...exclude, ...history.subjects]
+      );
+    } catch (generationError: any) {
+      // Попытка не должна сгорать из-за сбоя на нашей стороне
+      await generationUsageRepo.release(userId, 'logos');
+      throw generationError;
+    }
+
+    // Логотип уже сгенерирован — сбой записи не повод возвращать ошибку
+    try {
+      const logo = await logosRepo.create({
+        userId,
         name: businessName,
-        keywords: keywords,
-        industry: logoIndustry
-      });
-    } catch (dbError) {
-      return res.status(200).json({ 
-        success: true,
-        logoUrl: logoUrl,
-        name: businessName,
-        keywords: keywords,
+        keywords,
+        logoUrl: stored.previewUrl,
+        originalLogoUrl: stored.sourceUrl,
         industry: logoIndustry,
-        warning: 'Logo generated but could not be saved to database'
+        isPaid: false,
+        style,
+        pattern: stored.pattern,
+        subject: stored.subject,
+        concept: stored.concept,
+        palette: stored.palette,
+        lockupFont: stored.lockupFont,
+      });
+
+      return res.status(200).json({
+        success: true,
+        logoId: logo.id,
+        logoUrl: stored.previewUrl,
+        name: businessName,
+        keywords,
+        industry: logoIndustry,
+        subject: stored.subject,
+        pattern: stored.pattern,
+        remaining,
+      });
+    } catch (dbError: any) {
+      console.error('Не удалось сохранить логотип:', dbError.message);
+      return res.status(200).json({
+        success: true,
+        logoUrl: stored.previewUrl,
+        name: businessName,
+        keywords,
+        industry: logoIndustry,
+        subject: stored.subject,
+        pattern: stored.pattern,
+        remaining,
+        warning: 'Logo generated but could not be saved to database',
       });
     }
   } catch (error: any) {
     console.error('Error generating logo:', error);
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: 'Something went wrong',
       message: error.message,
-      details: error.response?.data || null
+      details: error.response?.data || null,
     });
   }
 });
 
-// Маршрут для получения логотипов пользователя
-router.get('/user-logos/:userId', async (req: any, res: any) => {
+// :userId в пути оставлен для совместимости со старыми ссылками и игнорируется
+router.get('/user-logos/:userId', requireAuth, async (req: any, res: any) => {
   try {
-    const { userId } = req.params;
+    const logos = await logosRepo.listByUser(req.user.id);
 
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
-      .from('generated_logos')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    
-    return res.status(200).json({ logos: data || [] });
+    // Отдаём только то, что нужно кабинету: email, телефон и id платежа — нет.
+    // Ссылка на чистый файл уходит клиенту только после оплаты
+    return res.status(200).json({
+      success: true,
+      logos: logos.map((logo) => ({
+        id: logo.id,
+        name: logo.name,
+        keywords: logo.keywords,
+        logoUrl: logo.logoUrl,
+        originalLogoUrl: logo.isPaid ? logo.originalLogoUrl : null,
+        // Кабинет по этому флагу решает, показывать ли кнопку SVG:
+        // у логотипов, сделанных до перехода на вектор, его нет
+        hasVector: Boolean(logo.isPaid && logo.originalSvgUrl),
+        isPaid: logo.isPaid,
+        orderId: logo.orderId,
+        createdAt: logo.createdAt,
+      })),
+    });
   } catch (error: any) {
-    console.error('Error fetching user logos:', error);
-    return res.status(200).json({ logos: [], error: 'Something went wrong' });
+    console.error('Error fetching user logos:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch logos' });
   }
 });
 
-export default router; 
+export default router;

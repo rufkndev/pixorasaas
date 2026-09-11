@@ -1,77 +1,74 @@
-//Express.js Backend Server for Pixora
+// Express-сервер Pixora. Все маршруты начинаются с /api.
 
-// Загружаем переменные окружения
+// Должен быть первым импортом: подтягивает переменные окружения
 import './loadEnv';
 
-// Импорт необходимых библиотек и модулей
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import path from 'path';
-import { createClient } from '@supabase/supabase-js';
 
-// Импорт маршрутов
+import { GENERATED_LOGOS_DIR, isSourceLogoFile } from './paths';
+
+import authRoutes from './routes/auth';
 import generateNameRoutes from './routes/generateName';
 import generateLogoRoutes from './routes/generateLogo';
 import generateBrandbookRoutes from './routes/generateBrandbook';
+import generationLimitRoutes from './routes/generationLimits';
 import sendContactRoutes from './routes/sendContact';
 import downloadBrandbookRoutes from './routes/downloadBrandbook';
 import downloadLogoRoutes from './routes/downloadLogo';
-import purchaseLogoRoutes from './routes/purchaseLogo';
 import yookassaPaymentRoutes from './routes/yookassaPayments';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(express.json());
-app.use(cors({
-  origin: '*',
-  credentials: true
-}));
+// Без этого за Caddy req.ip вернёт адрес прокси, и rate-limit
+// посчитает всех посетителей одним клиентом
+app.set('trust proxy', 1);
 
-// Статическая раздача сгенерированных логотипов
-const publicDir = path.join(__dirname, '..', 'public');
-app.use('/generated-logos', express.static(path.join(publicDir, 'generated-logos')));
+app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
-// Supabase client
-let supabaseInstance: any = null;
+// origin: '*' вместе с credentials: true невалиден — браузер отвергает такой ответ
+app.use(
+  cors({
+    origin: process.env.APP_URL || 'http://localhost:3000',
+    credentials: true,
+  })
+);
 
-export const getSupabaseClient = () => {
-  if (!supabaseInstance) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    
-    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    });
-  }
-  return supabaseInstance;
-};
+// Чистый логотип лежит в общем каталоге, но статикой не отдаётся:
+// без этой заглушки его можно было бы скачать, зная имя файла
+app.use(
+  '/generated-logos',
+  (req, res, next) => {
+    if (isSourceLogoFile(req.path)) {
+      return res.status(404).end();
+    }
+    next();
+  },
+  express.static(GENERATED_LOGOS_DIR)
+);
 
-// Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.use('/api/auth', authRoutes);
 app.use('/api', generateNameRoutes);
 app.use('/api', generateLogoRoutes);
 app.use('/api/generate-brandbook', generateBrandbookRoutes);
+app.use('/api', generationLimitRoutes);
 app.use('/api', sendContactRoutes);
 app.use('/api', downloadBrandbookRoutes);
 app.use('/api', downloadLogoRoutes);
-app.use('/api', purchaseLogoRoutes);
 app.use('/api', yookassaPaymentRoutes);
 
-// Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err.message);
   res.status(500).json({ error: 'Server error' });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

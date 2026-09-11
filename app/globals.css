@@ -22,6 +22,9 @@ body {
   color: rgb(var(--foreground-rgb));
   background: rgb(var(--background-rgb));
   font-feature-settings: "rlig" 1, "calt" 1;
+  /* Системный стек: шрифт берётся у ОС, ничего не скачивается ни при сборке,
+     ни у посетителя. Ранее здесь был Inter через next/font/google. */
+  font-family: theme('fontFamily.sans');
 }
 
 html {

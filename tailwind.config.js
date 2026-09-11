@@ -1,7 +1,3 @@
-// Этот файл определяет:
-// - Пути к файлам, где используются классы Tailwind (content)
-// - Настройки темы (цвета, шрифты, отступы и т.д.)
-// - Плагины Tailwind CSS
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -20,7 +16,24 @@ module.exports = {
         secondary: 'var(--secondary-color)',
         accent: 'var(--accent-color)',
       },
+      // Системный стек вместо веб-шрифта: ничего не скачивается ни при сборке,
+      // ни у посетителя. Кириллица есть на всех целевых платформах.
+      fontFamily: {
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
+          '"Noto Sans"',
+          'sans-serif',
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+        ],
+      },
     },
   },
-  plugins: [],
-} 
+  // Без плагина классы prose на юридических страницах не работают
+  plugins: [require('@tailwindcss/typography')],
+};

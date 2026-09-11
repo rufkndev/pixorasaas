@@ -1,57 +1,59 @@
-/* Страница "Связаться с нами" (Contact Us)
- * 
- * Этот файл содержит компонент страницы контактов, который позволяет пользователям
- * связаться с компанией через контактную форму. Страница также отображает
- * контактную информацию и часто задаваемые вопросы.*/
-
 "use client";
 import React from 'react';
 import { useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
 
+import Navbar from '../../components/layout/Navbar';
+import Footer from '../../components/layout/Footer';
+import { PdnConsentCheckbox } from '../../components/legal/ConsentCheckbox';
+import { ApiError, apiJson } from '../../lib/authClient';
+import { LEGAL_LINKS, REQUISITES } from '../../lib/legal';
 
-// Компонент страницы "Связаться с нами"
 export default function ContactPage() {
-  // Состояния для управления формой
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [consentPdn, setConsentPdn] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Обработчик отправки формы
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Форма собирает имя и email, поэтому без согласия отправлять нельзя
+    if (!consentPdn) {
+      setError('Требуется согласие на обработку персональных данных');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
-      const response = await axios.post('/api/send-contact', {
-        name,
-        email,
-        message
+      await apiJson('/api/send-contact', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, message, consentPdn: true }),
       });
 
-      if (response.data.success) {
-        setSubmitted(true);
-        // Очищаем поля формы
-        setName('');
-        setEmail('');
-        setMessage('');
-      }
-    } catch (error: any) {
-      console.error('Error sending contact message:', error);
-      setError(error.response?.data?.error || 'Произошла ошибка при отправке сообщения');
+      setSubmitted(true);
+      // Очищаем поля формы
+      setName('');
+      setEmail('');
+      setMessage('');
+      setConsentPdn(false);
+    } catch (err) {
+      console.error('Error sending contact message:', err);
+      setError(err instanceof ApiError ? err.message : 'Произошла ошибка при отправке сообщения');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
+    <>
+    <Navbar />
     <main className="pt-16">
-      {/* Секция с заголовком */}
       <div className="bg-gray-50 py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
@@ -65,18 +67,15 @@ export default function ContactPage() {
         </div>
       </div>
 
-      {/* Основное содержимое страницы */}
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Левая колонка: контактная информация и FAQ */}
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Контактная информация</h2>
               <p className="mt-4 text-lg text-gray-700">
                 Мы стремимся ответить на все запросы в течение 24 часов.
               </p>
 
-              {/* Блок с контактной информацией */}
               <div className="mt-8 space-y-6">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
@@ -94,7 +93,6 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                {/* Телефон */}
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
                     <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,20 +108,6 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                {/* Адрес */}
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21l-5-5-5 5V5a2 2 0 012-2h6a2 2 0 012 2z" />
-                    </svg>
-                  </div>
-                  <div className="ml-3 text-gray-700">
-                    <p className="text-sm font-medium text-gray-900">Адрес</p>
-                    <p className="mt-1">693006, Россия, Сахалинская Обл, г. Южно-Сахалинск, ул. Ленина, д. 327А, кв. 4</p>
-                  </div>
-                </div>
-
-                {/* Реквизиты */}
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
                     <svg className="h-6 w-6 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -131,14 +115,36 @@ export default function ContactPage() {
                     </svg>
                   </div>
                   <div className="ml-3 text-gray-700 text-sm">
-                    <p className="font-medium text-gray-900">Реквизиты ИП Таранов Артём Игоревич</p>
-                    <p className="mt-1">ИНН: 650302923331</p>
-                    <p>ОГРНИП: 325650000017843</p>
+                    <p className="font-medium text-gray-900">Реквизиты</p>
+                    <p className="mt-1">{REQUISITES.name}</p>
+                    <p>ИНН: {REQUISITES.inn}</p>
+                    <p>ОГРНИП: {REQUISITES.ogrnip}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Раздел с часто задаваемыми вопросами */}
+              {/* Уведомление об операторе персональных данных (152-ФЗ) */}
+              <div className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5 text-sm text-gray-700">
+                <p className="font-medium text-gray-900">Оператор персональных данных</p>
+                <p className="mt-2">
+                  {REQUISITES.name} (ИНН {REQUISITES.inn}) является оператором персональных данных и
+                  обрабатывает их в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ
+                  «О персональных данных». Цели, состав данных, сроки хранения и порядок отзыва
+                  согласия описаны в{' '}
+                  <Link href={LEGAL_LINKS.personalData} className="underline hover:no-underline">
+                    политике обработки персональных данных
+                  </Link>
+                  .
+                </p>
+                <p className="mt-2">
+                  Запросы субъектов персональных данных направляйте на{' '}
+                  <a href={`mailto:${REQUISITES.email}`} className="underline hover:no-underline">
+                    {REQUISITES.email}
+                  </a>
+                  .
+                </p>
+              </div>
+
               <div className="mt-12">
                 <h3 className="text-lg font-medium text-gray-900">Часто задаваемые вопросы</h3>
                 <div className="mt-4 space-y-6">
@@ -167,7 +173,6 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Правая колонка: форма обратной связи или сообщение об успешной отправке */}
             <div>
               {submitted ? (
                 // Сообщение об успешной отправке формы
@@ -202,7 +207,6 @@ export default function ContactPage() {
                     </div>
                   )}
                   <div className="mt-6 space-y-6">
-                    {/* Поле для ввода имени */}
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                         Ваше имя
@@ -218,7 +222,6 @@ export default function ContactPage() {
                         />
                       </div>
                     </div>
-                    {/* Поле для ввода email */}
                     <div>
                       <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                         Ваш email
@@ -234,7 +237,6 @@ export default function ContactPage() {
                         />
                       </div>
                     </div>
-                    {/* Поле для ввода сообщения */}
                     <div>
                       <label htmlFor="message" className="block text-sm font-medium text-gray-700">
                         Ваше сообщение
@@ -250,11 +252,17 @@ export default function ContactPage() {
                         />
                       </div>
                     </div>
-                    {/* Кнопка отправки формы */}
+                    {/* Согласие на обработку ПДн */}
+                    <PdnConsentCheckbox
+                      id="contact-consent-pdn"
+                      checked={consentPdn}
+                      onChange={setConsentPdn}
+                      disabled={isLoading}
+                    />
                     <div>
                       <button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={isLoading || !consentPdn}
                         className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isLoading ? (
@@ -276,7 +284,6 @@ export default function ContactPage() {
             </div>
           </div>
 
-          {/* Кнопка для возврата на главную страницу */}
           <div className="mt-16 text-center">
             <Link 
               href="/"
@@ -288,5 +295,7 @@ export default function ContactPage() {
         </div>
       </div>
     </main>
+    <Footer />
+    </>
   );
 } 

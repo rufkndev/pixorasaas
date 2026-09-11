@@ -6,13 +6,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
-import { useAuth } from '../../context/AuthContext';
+import { useRequireAuth } from '../../hooks/useRequireAuth';
+import { apiFetch } from '../../lib/authClient';
+import { OfferConsentCheckbox } from '../../components/legal/ConsentCheckbox';
+import { PRICES } from '../../lib/legal';
 import React from 'react';
 
 function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  // Оплата возможна только из аккаунта: заказ привязывается к пользователю
+  // на сервере, а раньше сюда мог попасть кто угодно
+  const { user, isLoading: isAuthLoading } = useRequireAuth();
   
   // Получаем данные из URL параметров
   const product = searchParams.get('product') || '';
@@ -27,12 +32,11 @@ function PaymentContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState('');
 
-  // Предотвращаем гидратацию
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
     
@@ -51,17 +55,16 @@ function PaymentContent() {
       router.push('/');
     }
     
-    // Проверка специфичных параметров для логотипа
-    if (mounted && product === 'logo' && (!name || !keywords)) {
+    // Логотип нужен и для логотипа: сервер сверяет, что он принадлежит покупателю
+    if (mounted && product === 'logo' && (!name || !keywords || !logoUrl)) {
       router.push('/');
     }
   }, [mounted, product, name, keywords, logoUrl, industry, brandStyle, user, router]);
 
-  // Информация о продуктах
   const productInfo = {
     logo: {
       title: 'Логотип без вотермарки',
-      price: 499,
+      price: PRICES.logo,
       description: 'Высококачественный логотип в полном разрешении',
       features: [
         'Логотип без вотермарки',
@@ -72,7 +75,7 @@ function PaymentContent() {
     },
     brandbook: {
       title: 'Полный брендбук',
-      price: 999,
+      price: PRICES.brandbook,
       description: 'Комплексное руководство по фирменному стилю',
       features: [
         'Логотип в 5 вариациях',
@@ -87,12 +90,11 @@ function PaymentContent() {
 
   const currentProduct = productInfo[product as keyof typeof productInfo];
 
-  // Обработка оплаты
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!acceptTerms) {
-      setError('Необходимо согласиться с условиями использования');
+      setError('Необходимо принять условия публичной оферты');
       return;
     }
 
@@ -103,76 +105,37 @@ function PaymentContent() {
     
     setIsProcessing(true);
     setError('');
-    
+
     try {
-      const orderId = `order_${Date.now()}`;
-
-      // Подготавливаем данные для оплаты
-      const productData = {
-        userId: user?.id,
-        name,
-        keywords,
-        logoUrl,
-        email,
-        phone,
-        ...(product === 'brandbook' && { 
-          slogan, 
-          industry, 
-          brandStyle 
-        })
-      };
-
-      // Определяем URL для возврата в зависимости от продукта
-      let returnUrl;
-      if (product === 'brandbook') {
-        const brandbookParams = new URLSearchParams({
-          name,
-          keywords,
-          logoUrl,
-          industry,
-          style: brandStyle,
-          payment_success: 'true',
-          orderId,
-        });
-        returnUrl = `${window.location.origin}/pages/brandbook-generator?${brandbookParams.toString()}`;
-      } else {
-        returnUrl = `${window.location.origin}/pages/payment/success?product=${product}&userId=${user?.id}&orderId=${orderId}`;
-      }
-
-
-      // Создаем платеж в ЮKassa
-      const createPaymentResponse = await fetch('/api/yookassa/create-payment', {
+      // Ни цену, ни номер заказа, ни адрес возврата клиент не задаёт —
+      // всё это считает сервер, иначе их можно подменить
+      const response = await apiFetch('/api/yookassa/create-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          description: `Оплата ${currentProduct.title} для "${name}"`,
-          returnUrl: returnUrl,
           productType: product,
-          productData: productData,
-          metadata: {
-            paymentMethod,
-            userEmail: email,
-            userPhone: phone,
-            orderId: orderId,
-          }
+          productData: {
+            name,
+            keywords,
+            logoUrl,
+            email,
+            phone,
+            ...(product === 'brandbook' && { slogan, industry, brandStyle }),
+          },
+          acceptOffer: true,
         }),
       });
 
-      const paymentResult = await createPaymentResponse.json();
-      
-      if (!createPaymentResponse.ok) {
-        throw new Error(paymentResult.message || 'Ошибка при создании платежа');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка при создании платежа');
       }
 
-      // Перенаправляем пользователя на страницу оплаты ЮKassa
-      window.location.href = paymentResult.payment.confirmation_url;
-      
+      // Умный платёж: способ оплаты пользователь выбирает на форме ЮKassa
+      window.location.href = result.confirmationUrl;
     } catch (err: any) {
       console.error('Payment error:', err);
-      setError(`Ошибка при обработке платежа: ${err.message || 'Неизвестная ошибка'}`);
-    } finally {
+      setError(err.message || 'Не удалось перейти к оплате. Попробуйте ещё раз.');
       setIsProcessing(false);
     }
   };
@@ -289,7 +252,7 @@ function PaymentContent() {
                 {/* Форма оплаты */}
                 <div className="mt-8 lg:mt-0">
                   <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                    <h2 className="text-xl font-bold text-gray-900 mb-6">Способ оплаты</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-6">Оформление оплаты</h2>
                     
                     <form onSubmit={handlePayment} className="space-y-6">
                       {/* Контактная информация */}
@@ -329,70 +292,32 @@ function PaymentContent() {
                         </div>
                       </div>
 
-                      {/* Способы оплаты */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Способ оплаты</h3>
-                        
-                        <div className="space-y-3">
-                          <div className="flex items-center">
-                            <input
-                              id="card"
-                              type="radio"
-                              value="card"
-                              checked={paymentMethod === 'card'}
-                              onChange={(e) => setPaymentMethod(e.target.value)}
-                              className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300"
-                            />
-                            <label htmlFor="card" className="ml-3 block text-sm font-medium text-gray-700">
-                              Банковская карта
-                            </label>
-                          </div>
-                          
-                          <div className="flex items-center">
-                            <input
-                              id="yookassa"
-                              type="radio"
-                              value="yookassa"
-                              checked={paymentMethod === 'yookassa'}
-                              onChange={(e) => setPaymentMethod(e.target.value)}
-                              className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300"
-                            />
-                            <label htmlFor="yookassa" className="ml-3 block text-sm font-medium text-gray-700">
-                              ЮKassa (СБП, Qiwi, WebMoney)
-                            </label>
-                          </div>
-                        </div>
+                      {/* Способ оплаты выбирается на стороне ЮKassa: список
+                          доступных методов знает она, а не мы */}
+                      <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                        <h3 className="text-sm font-medium text-gray-900">Как пройдёт оплата</h3>
+                        <p className="mt-2 text-sm text-gray-600">
+                          Мы перенаправим вас на защищённую страницу ЮKassa. Там можно заплатить
+                          картой, через СБП, SberPay или другим доступным способом — данные карты
+                          вводятся на стороне ЮKassa и к нам не попадают.
+                        </p>
                       </div>
 
-                      {/* Согласие с условиями */}
-                      <div className="flex items-center">
-                        <input
-                          id="terms"
-                          type="checkbox"
-                          checked={acceptTerms}
-                          onChange={(e) => setAcceptTerms(e.target.checked)}
-                          className="h-4 w-4 text-gray-600 focus:ring-gray-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
-                          Я согласен с{' '}
-                          <Link href="/pages/terms" className="text-blue-600 hover:text-blue-800">
-                            условиями использования
-                          </Link>
-                          {' '}и{' '}
-                          <Link href="/pages/privacy" className="text-blue-600 hover:text-blue-800">
-                            политикой конфиденциальности
-                          </Link>
-                        </label>
-                      </div>
+                      {/* Согласие с офертой: акцепт публичной оферты — момент
+                          заключения договора, поэтому ссылка на неё обязательна */}
+                      <OfferConsentCheckbox
+                        id="terms"
+                        checked={acceptTerms}
+                        onChange={setAcceptTerms}
+                        disabled={isProcessing}
+                      />
 
-                      {/* Ошибка */}
                       {error && (
                         <div className="p-4 bg-red-50 text-red-700 rounded-md border border-red-200">
                           {error}
                         </div>
                       )}
 
-                      {/* Кнопка оплаты */}
                       <button
                         type="submit"
                         disabled={isProcessing || !acceptTerms}

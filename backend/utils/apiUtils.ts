@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Интерфейс для ответа от GenAPI
 export interface GeneratedResponse {
   request_id?: string;
   status?: string;
@@ -14,52 +13,68 @@ export interface GeneratedResponse {
   [key: string]: any;
 }
 
-// Базовые методы для работы с API
 export class ApiUtils {
   private apiKey: string;
   private baseUrl = 'https://api.gen-api.ru/api/v1';
 
   constructor() {
     this.apiKey = process.env.GENAPI_KEY || '';
-    if (!this.apiKey) {
-      console.error('GENAPI_KEY is missing!');
-    }
   }
 
-  // Универсальная функция ожидания результата
-  async waitForResult(requestId: string, maxAttempts: number = 20, delayMs: number = 1500): Promise<GeneratedResponse> {
+  // GenAPI отвечает асинхронно: опрашиваем задачу, пока не будет готова.
+  // Умолчание с запасом: генерация картинки занимает 15-30 секунд, а текст
+  // с рассуждением бывает и дольше
+  async waitForResult(requestId: string, maxAttempts: number = 60, delayMs: number = 3000): Promise<GeneratedResponse> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const statusUrl = `${this.baseUrl}/request/get/${requestId}`;
-      
-      const response = await axios.get(statusUrl, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` }
-      });
-      
-      const status = response.data.status || response.data.state || 'processing';
-      
-      if (['success', 'done', 'completed', 'finished', 'ready'].includes(status.toLowerCase())) {
-        return response.data;
-      } 
-      
-      if (['failed', 'error', 'failure', 'rejected'].includes(status.toLowerCase())) {
-        throw new Error(`GenAPI request failed: ${JSON.stringify(response.data)}`);
+      let data: GeneratedResponse | null = null;
+
+      try {
+        const response = await axios.get(`${this.baseUrl}/request/get/${requestId}`, {
+          headers: { 'Authorization': `Bearer ${this.getApiKey()}` }
+        });
+        data = response.data;
+      } catch (error: any) {
+        // Разовый обрыв связи не повод терять уже оплаченную генерацию:
+        // сдаёмся только на последней попытке
+        if (attempt === maxAttempts - 1) throw error;
+        console.error(`Опрос GenAPI не удался (попытка ${attempt + 1}):`, error.message);
       }
-      
+
+      // Отказ самой задачи разбирается вне catch: иначе собственный throw
+      // попадал бы в него же и задача опрашивалась ещё шестьдесят раз
+      if (data) {
+        const status = (data.status || data.state || 'processing').toLowerCase();
+
+        if (['success', 'done', 'completed', 'finished', 'ready'].includes(status)) {
+          return data;
+        }
+
+        if (['failed', 'error', 'failure', 'rejected'].includes(status)) {
+          const reason = Array.isArray(data.result) ? data.result[0] : data.status;
+          throw new Error(`GenAPI отказал: ${reason}`);
+        }
+      }
+
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
-    
+
     throw new Error(`Timeout waiting for GenAPI result after ${maxAttempts} attempts`);
   }
 
-  // Извлечение текста из ответа GenAPI
   extractTextFromResponse(response: GeneratedResponse): string {
-    // Проверяем наиболее вероятные места расположения текста
+    // Формат ответа зависит от линейки: gpt-4o кладёт текст в full_response[0].message,
+    // линейка gpt-5 — в result[0].choices[0].message. Последний источник склеивает
+    // только массив строк: массив объектов превращался в «[object Object]»
     const textSources = [
+      () => response.result?.[0]?.choices?.[0]?.message?.content,
+      () => response.full_response?.[0]?.choices?.[0]?.message?.content,
       () => response.full_response?.[0]?.message?.content,
       () => response.result?.choices?.[0]?.message?.content,
       () => response.result?.text,
       () => typeof response.result === 'string' ? response.result : null,
-      () => Array.isArray(response.result) ? response.result.join('\n') : null
+      () => Array.isArray(response.result) && response.result.every(item => typeof item === 'string')
+        ? response.result.join('\n')
+        : null
     ];
     
     for (const getSource of textSources) {
@@ -72,16 +87,18 @@ export class ApiUtils {
     throw new Error(`Could not extract text from response: ${JSON.stringify(response)}`);
   }
 
-  // Получение API ключа
+  // Ключ берётся лениво: модуль импортируется раньше, чем loadEnv успевает
+  // прочитать .env.local, и в конструкторе он ещё пустой
   getApiKey(): string {
+    if (!this.apiKey) {
+      this.apiKey = process.env.GENAPI_KEY || '';
+    }
     return this.apiKey;
   }
 
-  // Получение базового URL
   getBaseUrl(): string {
     return this.baseUrl;
   }
 }
 
-// Экспорт экземпляра для переиспользования
 export const apiUtils = new ApiUtils(); 

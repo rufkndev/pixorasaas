@@ -1,29 +1,33 @@
 import { sloganService } from './sloganService';
-import { logoVariantService, LogoVariant } from './logoVariantService';
+import { buildPalette } from './brand/paletteService';
+import { LogoAsset, logoAssetService } from './brand/logoAssetService';
 
 export interface DemoBrandbook {
   slogan: string;
-  logoVariants: LogoVariant[];
+  logoVariants: LogoAsset[];
 }
 
-// Сервис для генерации демо-брендбука
 export class DemoBrandbookService {
-  // Генерация демо брендбука (только слоган и базовые вариации логотипа)
-  async generateDemoBrandbook(name: string, keywords: string, logoUrl: string, existingSlogan?: string): Promise<DemoBrandbook> {
-    // Используем переданный слоган или генерируем новый
-    const slogan = existingSlogan || await sloganService.generateSlogan(name, keywords, 'профессиональный и современный');
-    
-    // Для демо создаем только базовые вариации (без аббревиатуры и с текстом)
-    const logoVariants = await logoVariantService.generateBasicLogoVariants(logoUrl, name);
-    
-    const brandbook: DemoBrandbook = {
-      slogan: slogan,
-      logoVariants: logoVariants
-    };
+  // Предпросмотр до оплаты: слоган и версии логотипа, собранные из превью
+  // с водяным знаком. Чистых файлов здесь не появляется.
+  async generateDemoBrandbook(
+    name: string,
+    keywords: string,
+    logoUrl: string,
+    style = 'modern',
+    existingSlogan?: string
+  ): Promise<DemoBrandbook> {
+    const slogan =
+      existingSlogan || (await sloganService.generateSlogan(name, keywords, style));
 
-    return brandbook;
+    // Палитра нужна только для тёмной подложки под выворотку
+    const colors = buildPalette({ logoPalette: null, style });
+
+    return {
+      slogan,
+      logoVariants: await logoAssetService.previewVariants(logoUrl, colors),
+    };
   }
 }
 
-// Экспорт экземпляра для переиспользования
-export const demoBrandbookService = new DemoBrandbookService(); 
+export const demoBrandbookService = new DemoBrandbookService();

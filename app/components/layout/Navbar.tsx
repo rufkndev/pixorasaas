@@ -1,9 +1,3 @@
-//Компонент навигационной панели (Navbar)
- 
-// Этот файл содержит компонент навигационной панели, который отображается
-// в верхней части всех страниц сайта. Навигационная панель содержит логотип,
-// название сервиса и ссылки на основные разделы сайта.
-
 "use client";
 
 import React from 'react';
@@ -12,34 +6,28 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '../../context/AuthContext';
 import LoginButton from '../../components/auth/LoginButton';
-import { User } from '@supabase/supabase-js';
+import { AuthUser } from '../../lib/authClient';
 import { useRouter } from 'next/navigation';
 
-// Компонент навигационной панели
+// Отображаемое имя: полное имя, иначе часть email до @
+const displayName = (user: AuthUser) =>
+  user.fullName || user.email.split('@')[0] || 'Пользователь';
+
 export default function Navbar() {
   const { user, signOut, isLoading } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const avatarContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Предотвращаем гидратацию, устанавливая mounted только после первого рендера
+  // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Сбрасываем ошибку аватара при изменении пользователя
-  useEffect(() => {
-    if (user) {
-      setAvatarError(false);
-    }
-  }, [user]);
-
-  // Обработчик клика вне выпадающего меню
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -66,7 +54,6 @@ export default function Navbar() {
     setIsDropdownOpen(!isDropdownOpen);
   };
 
-  // Функция для перехода в личный кабинет
   const navigateToDashboard = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -75,7 +62,6 @@ export default function Navbar() {
     router.push('/pages/dashboard');
   }, [router]);
 
-  // Функция для выхода из аккаунта
   const handleSignOut = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -87,11 +73,7 @@ export default function Navbar() {
       setIsDropdownOpen(false);
       setIsMenuOpen(false);
       
-      // Вызываем функцию выхода из контекста авторизации
       await signOut();
-      
-      // Дополнительная очистка состояния компонента
-      setAvatarError(false);
     } catch (error) {
       console.error('Error signing out:', error);
     } finally {
@@ -99,16 +81,15 @@ export default function Navbar() {
     }
   }, [signOut, isSigningOut]);
 
-  // Компонент аватара пользователя для переиспользования
-  const UserAvatar = ({ user, isMobile = false }: { user: User, isMobile?: boolean }) => {
-    const userInitial = (user.user_metadata?.full_name || user.email || 'U').charAt(0).toUpperCase();
-    const hasAvatar = user.user_metadata?.avatar_url && !avatarError;
-    
-    // Таймер для задержки закрытия выпадающего меню
+  // Аватар — кружок с инициалом: внешних картинок профиля больше нет.
+  // Аватар — кружок с инициалом: внешних картинок профиля больше нет.
+  const UserAvatar = ({ user, isMobile = false }: { user: AuthUser, isMobile?: boolean }) => {
+    const userInitial = displayName(user).charAt(0).toUpperCase();
+
+    // Небольшая задержка, чтобы меню не закрывалось при переходе курсора на него
     const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     const handleMouseEnter = () => {
-      // Отменяем таймер закрытия, если он был установлен
       if (closeTimeoutRef.current) {
         clearTimeout(closeTimeoutRef.current);
         closeTimeoutRef.current = null;
@@ -117,9 +98,7 @@ export default function Navbar() {
     };
     
     const handleMouseLeave = () => {
-      // Устанавливаем таймер для закрытия с небольшой задержкой
       closeTimeoutRef.current = setTimeout(() => {
-        // Проверяем, не находится ли курсор над выпадающим меню
         const isOverDropdown = dropdownRef.current && 
           dropdownRef.current.matches(':hover');
         
@@ -132,27 +111,14 @@ export default function Navbar() {
     return (
       <div className={`${isMobile ? 'py-2' : 'relative'}`}>
         {isMobile ? (
-          // Мобильная версия аватара
           <>
             <div className="flex items-center space-x-2 mb-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
-                {hasAvatar ? (
-                  <Image 
-                    src={user.user_metadata.avatar_url}
-                    alt={user.user_metadata?.full_name || 'User'} 
-                    width={32} 
-                    height={32} 
-                    className="object-cover"
-                    onError={() => setAvatarError(true)}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-sm">
-                    {userInitial}
-                  </div>
-                )}
+              <div className="w-8 h-8 rounded-full overflow-hidden">
+                <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-sm">
+                  {userInitial}
+                </div>
               </div>
-              <span>{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь'}</span>
+              <span>{displayName(user)}</span>
             </div>
             <a 
               href="/pages/dashboard"
@@ -174,7 +140,6 @@ export default function Navbar() {
             </a>
           </>
         ) : (
-          // Десктопная версия аватара
           <>
             <div 
               ref={avatarContainerRef}
@@ -184,24 +149,12 @@ export default function Navbar() {
               onMouseLeave={handleMouseLeave}
             >
               <div className="flex items-center space-x-2 text-gray-700 hover:text-gray-900">
-                <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
-                  {hasAvatar ? (
-                    <Image 
-                      src={user.user_metadata.avatar_url}
-                      alt={user.user_metadata?.full_name || 'User'} 
-                      width={32} 
-                      height={32} 
-                      className="object-cover"
-                      onError={() => setAvatarError(true)}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-sm">
-                      {userInitial}
-                    </div>
-                  )}
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-sm">
+                    {userInitial}
+                  </div>
                 </div>
-                <span>{user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь'}</span>
+                <span>{displayName(user)}</span>
               </div>
             </div>
             
@@ -238,7 +191,6 @@ export default function Navbar() {
     );
   };
 
-  // Компонент скелетона для состояния загрузки
   const AuthSkeleton = ({ isMobile = false }: { isMobile?: boolean }) => (
     <div className={`h-10 ${isMobile ? 'w-full' : 'w-24'} bg-gray-200 animate-pulse rounded-md`}></div>
   );
@@ -247,7 +199,6 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          {/* Логотип и название сервиса */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <div className="w-8 h-8 relative mr-2">
@@ -263,7 +214,6 @@ export default function Navbar() {
             </Link>
           </div>
           
-          {/* Навигационные ссылки (отображаются только на десктопе) */}
           <div className="hidden md:flex items-center space-x-8">
             <Link href="/pages/pricing" className="text-gray-700 hover:text-gray-900 transition-colors">
               Цены
@@ -272,7 +222,6 @@ export default function Navbar() {
               О нас
             </Link>
             
-            {/* Используем mounted для предотвращения мерцания при гидратации */}
             {!mounted ? (
               <AuthSkeleton />
             ) : isLoading ? (
@@ -284,7 +233,6 @@ export default function Navbar() {
             )}
           </div>
           
-          {/* Кнопка мобильного меню (отображается только на мобильных устройствах) */}
           <div className="flex items-center md:hidden">
             <button 
               onClick={toggleMenu}
@@ -298,7 +246,6 @@ export default function Navbar() {
         </div>
       </div>
       
-      {/* Мобильное меню */}
       {isMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 py-2">
           <div className="px-4 space-y-3">
@@ -317,7 +264,6 @@ export default function Navbar() {
               О нас
             </Link>
             
-            {/* Используем mounted для предотвращения мерцания при гидратации */}
             {!mounted ? (
               <AuthSkeleton isMobile={true} />
             ) : isLoading ? (

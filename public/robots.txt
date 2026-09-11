@@ -1,5 +1,5 @@
-# Robots.txt для pixora-labs.ru
-# Обновлено: 2024
+# Robots.txt для pixora-ai.ru
+# Обновлено: 2026-08-27
 
 User-agent: *
 Allow: /
@@ -11,10 +11,23 @@ Allow: /pages/logo-generator
 Allow: /pages/brandbook-generator
 Allow: /pages/contact
 
+# Юридические документы должны быть доступны неограниченному кругу лиц
+Allow: /pages/offer
+Allow: /pages/terms
+Allow: /pages/personal-data
+Allow: /pages/consent
+Allow: /pages/privacy
+Allow: /pages/cookies
+
 # Запрещаем индексацию технических и служебных страниц
 Disallow: /pages/dashboard/
 Disallow: /pages/payment/
 Disallow: /pages/brandbook/
+Disallow: /pages/login
+Disallow: /pages/register
+Disallow: /pages/forgot-password
+Disallow: /pages/reset-password
+Disallow: /pages/verify-email
 Disallow: /api/
 Disallow: /_next/
 Disallow: /backend/
@@ -48,7 +61,7 @@ Allow: /
 Crawl-delay: 1
 
 # Указываем путь к карте сайта
-Sitemap: https://pixora-labs.ru/sitemap.xml
+Sitemap: https://pixora-ai.ru/sitemap.xml
 
 # Запрещаем индексацию для других ботов (защита от спама)
 User-agent: AhrefsBot

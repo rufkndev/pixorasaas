@@ -1,0 +1,31 @@
+# Зависимости и артефакты сборки ставятся внутри образа
+node_modules
+.next
+dist
+backend/dist
+out
+*.tsbuildinfo
+
+# Секреты в образ не попадают, пробрасываются через env_file
+.env
+.env.local
+.env.production
+.env*.local
+
+.git
+.gitignore
+.github
+.vscode
+.idea
+.cursor
+.claude
+docs
+
+# Живут в volume
+public/generated-logos
+
+*.log
+.DS_Store
+README.md
+CLAUDE.md
+LICENSE

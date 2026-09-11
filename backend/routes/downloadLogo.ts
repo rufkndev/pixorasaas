@@ -1,182 +1,181 @@
+import archiver from 'archiver';
 import { Router } from 'express';
-import { getSupabaseClient } from '../index';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
+import { logosRepo } from '../db/repositories';
+import { requireAuth } from '../auth/middleware';
+import { resolveGeneratedLogoPath } from '../paths';
+import { rawNameFor } from '../services/logoService';
+import { fileSlug } from '../utils/slug';
+
 const router = Router();
 
-// Endpoint для скачивания логотипа без вотермарки
-router.get('/download-logo/:logoId', async (req, res) => {
+const fileNameFor = (name: string | null): string => fileSlug(name, 'logo');
+
+// Сырой кадр модели лежит рядом с обработанным, отдельной колонки в базе нет
+const rawPathFor = (sourceUrl: string | null): string | null => {
+  const sourcePath = resolveGeneratedLogoPath(sourceUrl);
+  if (!sourcePath) return null;
+
+  const raw = path.join(path.dirname(sourcePath), rawNameFor(sourcePath));
+  return fs.existsSync(raw) ? raw : null;
+};
+
+// Скачивание чистого логотипа. Форматы: png (обработанный, прозрачный),
+// svg (вектор), original (кадр модели как есть), zip (всё сразу), jpg, webp
+router.get('/download-logo/:logoId', requireAuth, async (req: any, res) => {
   try {
     const { logoId } = req.params;
-    const { userId, format = 'png' } = req.query;
+    const format = String(req.query.format || 'png').toLowerCase();
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User authentication required' });
-    }
+    const logo = await logosRepo.findByIdForUser(logoId, req.user.id);
 
-    const supabase = getSupabaseClient();
-    
-    // Получаем данные логотипа
-    const { data: logo, error } = await supabase
-      .from('generated_logos')
-      .select('*')
-      .eq('id', logoId)
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !logo) {
+    if (!logo) {
       return res.status(404).json({ error: 'Logo not found' });
     }
 
     // Проверяем статус оплаты
-    if (!logo.is_paid) {
-      return res.status(403).json({ 
+    if (!logo.isPaid) {
+      return res.status(403).json({
         error: 'Payment required',
-        message: 'Для скачивания логотипа требуется оплата'
+        message: 'Для скачивания логотипа требуется оплата',
       });
     }
 
-    // Получаем путь к файлу логотипа
-    const logoPath = logo.logo_url.replace('/generated-logos/', '');
-    const fullLogoPath = path.join(process.cwd(), '..', 'public', 'generated-logos', logoPath);
+    const fileName = fileNameFor(logo.name);
 
-    // Проверяем существование файла
-    if (!fs.existsSync(fullLogoPath)) {
+    // Скачивается всегда чистый файл; logo_url — это превью с водяным знаком.
+    // Старые записи до разделения хранят оригинал прямо в logo_url
+    const cleanUrl = logo.originalLogoUrl || logo.logoUrl;
+    const cleanPath = resolveGeneratedLogoPath(cleanUrl);
+    const svgPath = resolveGeneratedLogoPath(logo.originalSvgUrl);
+    const rawPath = rawPathFor(logo.originalLogoUrl);
+
+    if (format === 'zip') {
+      return sendArchive(res, fileName, { cleanPath, svgPath, rawPath });
+    }
+
+    // Вектор отдаём как есть: пересобирать его нечем и незачем.
+    // У логотипов, сделанных до перехода на вектор, svg просто нет
+    if (format === 'svg') {
+      if (!svgPath || !fs.existsSync(svgPath)) {
+        return res.status(404).json({
+          error: 'SVG not available',
+          message: 'Для этого логотипа векторная версия не создавалась',
+        });
+      }
+
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}.svg"`);
+      return res.send(fs.readFileSync(svgPath));
+    }
+
+    // Кадр ровно в том виде, в каком его сгенерировала модель
+    if (format === 'original') {
+      if (!rawPath) {
+        return res.status(404).json({
+          error: 'Original not available',
+          message: 'Исходный кадр модели для этого логотипа не сохранялся',
+        });
+      }
+
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}_original.png"`);
+      return res.send(fs.readFileSync(rawPath));
+    }
+
+    if (!cleanPath || !fs.existsSync(cleanPath)) {
       return res.status(404).json({ error: 'Logo file not found' });
     }
 
-    // Читаем файл
-    const logoBuffer = fs.readFileSync(fullLogoPath);
-    
-    // Определяем имя файла для скачивания
-    const fileName = `${logo.name.replace(/[^a-zA-Z0-9]/g, '_')}_logo`;
-    
-    // Если запрошен определенный формат, конвертируем
-    let outputBuffer = logoBuffer;
-    let mimeType = 'image/png';
-    let fileExtension = 'png';
+    const logoBuffer = fs.readFileSync(cleanPath);
 
-    if (format === 'svg' && fullLogoPath.endsWith('.svg')) {
-      mimeType = 'image/svg+xml';
-      fileExtension = 'svg';
-    } else if (format === 'jpg' || format === 'jpeg') {
-      outputBuffer = Buffer.from(await sharp(logoBuffer)
-        .jpeg({ quality: 95 })
-        .toBuffer());
-      mimeType = 'image/jpeg';
-      fileExtension = 'jpg';
-    } else if (format === 'webp') {
-      outputBuffer = Buffer.from(await sharp(logoBuffer)
-        .webp({ quality: 95 })
-        .toBuffer());
-      mimeType = 'image/webp';
-      fileExtension = 'webp';
-    } else {
-      // По умолчанию PNG
-      if (!fullLogoPath.endsWith('.png')) {
-        outputBuffer = Buffer.from(await sharp(logoBuffer)
-          .png({ quality: 95 })
-          .toBuffer());
-      }
-      mimeType = 'image/png';
-      fileExtension = 'png';
+    // jpg не поддерживает прозрачность — подкладываем белое, иначе фон чёрный
+    if (format === 'jpg' || format === 'jpeg') {
+      const out = await sharp(logoBuffer).flatten({ background: '#ffffff' }).jpeg({ quality: 95 }).toBuffer();
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}.jpg"`);
+      return res.send(out);
     }
 
-    // Отправляем файл
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}.${fileExtension}"`);
-    res.send(outputBuffer);
+    if (format === 'webp') {
+      const out = await sharp(logoBuffer).webp({ quality: 95 }).toBuffer();
+      res.setHeader('Content-Type', 'image/webp');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}.webp"`);
+      return res.send(out);
+    }
 
-  } catch (error) {
-    console.error('Error downloading logo:', error);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}.png"`);
+    return res.send(logoBuffer);
+  } catch (error: any) {
+    console.error('Error downloading logo:', error.message);
     res.status(500).json({ error: 'Failed to download logo' });
   }
 });
 
-// Endpoint для получения списка логотипов пользователя
-router.get('/user-logos/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
+// Один архив со всем, что купил пользователь: вектор, прозрачный PNG,
+// белый JPG для документов и кадр модели
+function sendArchive(
+  res: any,
+  fileName: string,
+  files: { cleanPath: string | null; svgPath: string | null; rawPath: string | null }
+): void {
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${fileName}_logo.zip"`);
 
-    const supabase = getSupabaseClient();
-    
-    // Получаем все логотипы пользователя
-    const { data: logos, error } = await supabase
-      .from('generated_logos')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  archive.on('error', (error) => {
+    console.error('Не удалось собрать архив логотипа:', error.message);
+    res.end();
+  });
+  archive.pipe(res);
 
-    if (error) {
-      console.error('Error fetching user logos:', error);
-      return res.status(500).json({ error: 'Failed to fetch logos' });
-    }
-
-    // Возвращаем логотипы с информацией о статусе оплаты
-    const logosWithStatus = logos.map(logo => ({
-      id: logo.id,
-      name: logo.name,
-      keywords: logo.keywords,
-      logo_url: logo.logo_url,
-      is_paid: logo.is_paid,
-      payment_id: logo.payment_id,
-      created_at: logo.created_at,
-      // Не передаем приватную информацию
-    }));
-
-    return res.status(200).json({ 
-      success: true,
-      logos: logosWithStatus 
-    });
-
-  } catch (error) {
-    console.error('Error fetching user logos:', error);
-    res.status(500).json({ error: 'Failed to fetch user logos' });
+  if (files.svgPath && fs.existsSync(files.svgPath)) {
+    archive.append(fs.readFileSync(files.svgPath), { name: `${fileName}.svg` });
   }
-});
 
-// Endpoint для предпросмотра логотипа (с вотермаркой для неоплаченных)
-router.get('/preview-logo/:logoId', async (req, res) => {
+  if (files.cleanPath && fs.existsSync(files.cleanPath)) {
+    const png = fs.readFileSync(files.cleanPath);
+    archive.append(png, { name: `${fileName}.png` });
+    archive.append(
+      sharp(png).flatten({ background: '#ffffff' }).jpeg({ quality: 95 }),
+      { name: `${fileName}.jpg` }
+    );
+  }
+
+  if (files.rawPath) {
+    archive.append(fs.readFileSync(files.rawPath), { name: `original/${fileName}_original.png` });
+  }
+
+  archive.finalize();
+}
+
+// Предпросмотр логотипа (вотермарка накладывается на фронтенде для неоплаченных)
+router.get('/preview-logo/:logoId', requireAuth, async (req: any, res) => {
   try {
-    const { logoId } = req.params;
-    const { userId } = req.query;
+    const logo = await logosRepo.findByIdForUser(req.params.logoId, req.user.id);
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User authentication required' });
-    }
-
-    const supabase = getSupabaseClient();
-    
-    // Получаем данные логотипа
-    const { data: logo, error } = await supabase
-      .from('generated_logos')
-      .select('*')
-      .eq('id', logoId)
-      .eq('user_id', userId)
-      .single();
-
-    if (error || !logo) {
+    if (!logo) {
       return res.status(404).json({ error: 'Logo not found' });
     }
 
-    // Возвращаем URL логотипа (с вотермаркой если не оплачен)
-    return res.status(200).json({ 
+    return res.status(200).json({
       success: true,
       logo: {
         id: logo.id,
         name: logo.name,
-        logo_url: logo.logo_url,
-        is_paid: logo.is_paid,
-        created_at: logo.created_at
-      }
+        logoUrl: logo.logoUrl,
+        isPaid: logo.isPaid,
+        createdAt: logo.createdAt,
+      },
     });
-
-  } catch (error) {
-    console.error('Error previewing logo:', error);
+  } catch (error: any) {
+    console.error('Error previewing logo:', error.message);
     res.status(500).json({ error: 'Failed to preview logo' });
   }
 });
 
-export default router; 
+export default router;

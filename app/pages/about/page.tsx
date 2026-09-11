@@ -1,16 +1,13 @@
-/* Страница "О нас" (About Us)
- * 
- * Этот файл содержит компонент страницы "О нас", который предоставляет информацию
- * о компании Pixora */
-
 import Link from 'next/link';
 import Image from 'next/image';
 
-// Компонент страницы "О нас"
+import Navbar from '../../components/layout/Navbar';
+import Footer from '../../components/layout/Footer';
 export default function AboutPage() {
   return (
+    <>
+    <Navbar />
     <main className="pt-16">
-      {/* Секция с заголовком */}
       <div className="bg-gray-50 py-12 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
@@ -24,7 +21,6 @@ export default function AboutPage() {
         </div>
       </div>
 
-      {/* Основное содержимое страницы */}
       <div className="py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Раздел о миссии компании */}
@@ -91,7 +87,6 @@ export default function AboutPage() {
             </div>
           </div>
 
-          {/* Кнопка для возврата на главную страницу */}
           <div className="mt-16 text-center">
             <Link 
               href="/"
@@ -103,5 +98,7 @@ export default function AboutPage() {
         </div>
       </div>
     </main>
+    <Footer />
+    </>
   );
 } 

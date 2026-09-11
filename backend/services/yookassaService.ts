@@ -1,398 +1,200 @@
-import { v4 as uuidv4 } from 'uuid';
-import { createHash, createHmac } from 'crypto';
+// Клиент API ЮKassa для сценария «Умный платёж»: способ оплаты мы не передаём,
+// пользователь выбирает его сам на форме ЮKassa.
+// https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment
+
+import { ipInAnyCidr } from '../utils/ipRange';
+
+export type PaymentStatus = 'pending' | 'waiting_for_capture' | 'succeeded' | 'canceled';
 
 export interface YookassaPayment {
   id: string;
-  status: 'pending' | 'waiting_for_capture' | 'succeeded' | 'canceled';
+  status: PaymentStatus;
   paid: boolean;
-  amount: {
-    value: string;
-    currency: string;
-  };
-  confirmation: {
-    type: 'redirect';
-    confirmation_url: string;
-  };
+  amount: { value: string; currency: string };
+  confirmation?: { type: string; confirmation_url?: string };
   created_at: string;
+  captured_at?: string;
   description?: string;
-  metadata?: Record<string, any>;
-  recipient?: {
-    account_id: string;
-    gateway_id: string;
-  };
+  metadata?: Record<string, string>;
+  cancellation_details?: { party: string; reason: string };
   test: boolean;
 }
 
-export interface CreatePaymentRequest {
-  amount: {
-    value: string;
-    currency: string;
-  };
-  capture: boolean;
-  confirmation: {
-    type: 'redirect';
-    return_url: string;
-  };
-  description?: string;
-  metadata?: Record<string, any>;
-  receipt?: {
-    customer: {
-      email?: string;
-      phone?: string;
-    };
-    items: Array<{
-      description: string;
-      quantity: string;
-      amount: {
-        value: string;
-        currency: string;
-      };
-      vat_code: number;
-      payment_subject: string;
-      payment_mode: string;
-    }>;
-  };
+export interface YookassaNotification {
+  type: string;
+  event: string;
+  object: { id?: string; metadata?: Record<string, string> };
 }
 
-export interface YookassaWebhook {
-  type: string;
-  event: 'payment.succeeded' | 'payment.canceled' | 'payment.waiting_for_capture';
-  object: YookassaPayment;
+export interface ReceiptItem {
+  description: string;
+  quantity: string;
+  amount: { value: string; currency: string };
+  vat_code: number;
+  payment_subject: string;
+  payment_mode: string;
+}
+
+// Адреса, с которых ЮKassa шлёт уведомления. Подписи у вебхука нет, поэтому
+// подлинность проверяется адресом отправителя плюс перезапросом платежа.
+// https://yookassa.ru/developers/using-api/webhooks
+const NOTIFICATION_IPS = [
+  '185.71.76.0/27',
+  '185.71.77.0/27',
+  '77.75.153.0/25',
+  '77.75.156.11',
+  '77.75.156.35',
+  '77.75.154.128/25',
+  '2a02:5180::/32',
+] as const;
+
+const API_TIMEOUT_MS = 20_000;
+const MAX_ATTEMPTS = 3;
+
+// ЮKassa режет описание платежа и наименование товара в чеке на 128 символах
+const MAX_DESCRIPTION = 128;
+
+export const trimDescription = (text: string): string =>
+  text.length > MAX_DESCRIPTION ? `${text.slice(0, MAX_DESCRIPTION - 1)}…` : text;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export class YookassaError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly code?: string
+  ) {
+    super(message);
+    this.name = 'YookassaError';
+  }
 }
 
 class YookassaService {
-  private readonly shopId: string;
-  private readonly secretKey: string;
-  private readonly baseUrl: string;
-  private readonly isTest: boolean;
+  private readonly baseUrl = (process.env.YOOKASSA_BASE_URL || 'https://api.yookassa.ru/v3')
+    .replace(/\/+$/, '');
 
-  constructor() {
-    this.shopId = process.env.YOOKASSA_SHOP_ID!;
-    this.secretKey = process.env.YOOKASSA_SECRET_KEY!;
-    this.baseUrl = process.env.YOOKASSA_BASE_URL || 'https://api.yookassa.ru/v3';
-    this.isTest = process.env.NODE_ENV !== 'production';
+  // Ключи читаются лениво: раньше конструктор бросал исключение на импорте
+  // и без настроенной ЮKassa не поднимался вообще весь бэкенд
+  private authHeader(): string {
+    const shopId = process.env.YOOKASSA_SHOP_ID;
+    const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
-    if (!this.shopId || !this.secretKey) {
-      throw new Error('ЮKassa credentials not found in environment variables');
+    if (!shopId || !secretKey) {
+      throw new YookassaError('ЮKassa не настроена: нет YOOKASSA_SHOP_ID или YOOKASSA_SECRET_KEY');
     }
 
-    // Проверяем формат учетных данных
-    if (this.shopId.length < 6 || this.secretKey.length < 30) {
-      console.warn('YooKassa credentials may be invalid:', {
-        shopIdLength: this.shopId.length,
-        secretKeyLength: this.secretKey.length,
-        shopIdStart: this.shopId.substring(0, 3) + '...'
-      });
-    }
-
-    console.log('YooKassa service initialized:', {
-      baseUrl: this.baseUrl,
-      shopIdMasked: this.shopId.substring(0, 3) + '***' + this.shopId.slice(-3),
-      isTest: this.isTest
-    });
+    return `Basic ${Buffer.from(`${shopId}:${secretKey}`).toString('base64')}`;
   }
 
-  /**
-   * Создание платежа
-   */
+  // Повтор с тем же Idempotence-Key безопасен: ЮKassa вернёт тот же платёж,
+  // а не создаст второй. Поэтому сеть и 5xx можно спокойно перезапрашивать.
+  private async request<T>(
+    path: string,
+    init: { method: 'GET' | 'POST'; body?: unknown; idempotenceKey?: string }
+  ): Promise<T> {
+    const headers: Record<string, string> = { Authorization: this.authHeader() };
+
+    if (init.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (init.idempotenceKey) {
+      headers['Idempotence-Key'] = init.idempotenceKey;
+    }
+
+    let lastError: Error = new YookassaError('ЮKassa не ответила');
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await fetch(`${this.baseUrl}${path}`, {
+          method: init.method,
+          headers,
+          body: init.body === undefined ? undefined : JSON.stringify(init.body),
+          signal: AbortSignal.timeout(API_TIMEOUT_MS),
+        });
+
+        if (response.ok) {
+          return (await response.json()) as T;
+        }
+
+        const details = await response.json().catch(() => ({}) as any);
+        const error = new YookassaError(
+          details.description || details.detail || response.statusText,
+          response.status,
+          details.code
+        );
+
+        // 4xx означает, что запрос неверен сам по себе — повтор не поможет
+        if (response.status < 500 && response.status !== 429) throw error;
+        lastError = error;
+      } catch (error: any) {
+        if (error instanceof YookassaError && error.status && error.status < 500) throw error;
+        lastError = error;
+      }
+
+      if (attempt < MAX_ATTEMPTS) await sleep(attempt * 500);
+    }
+
+    throw new YookassaError(`ЮKassa недоступна: ${lastError.message}`);
+  }
+
   async createPayment(params: {
     amount: number;
-    currency?: string;
-    description?: string;
+    currency: string;
+    description: string;
     returnUrl: string;
-    metadata?: Record<string, any>;
-    customerEmail?: string;
-    customerPhone?: string;
+    idempotenceKey: string;
+    metadata: Record<string, string>;
+    receiptEmail: string;
+    receiptPhone?: string;
+    receiptItems: ReceiptItem[];
   }): Promise<YookassaPayment> {
-    // Валидация входных параметров
-    if (!params.amount || params.amount <= 0) {
-      throw new Error('Некорректная сумма платежа');
-    }
-
-    if (!params.returnUrl || !params.returnUrl.startsWith('http')) {
-      throw new Error('Некорректный URL возврата');
-    }
-
-    // Проверяем, что URL возврата не слишком длинный
-    if (params.returnUrl.length > 2048) {
-      throw new Error('URL возврата слишком длинный');
-    }
-
-    const idempotenceKey = uuidv4();
-    
-    // Проверяем и обрезаем description до 128 символов (ограничение ЮKassa)
-    let description = params.description || 'Цифровая услуга';
-    if (description.length > 128) {
-      description = description.substring(0, 125) + '...';
-    }
-
-    // Проверяем и очищаем метаданные (убираем слишком длинные значения)
-    let cleanMetadata: Record<string, any> = {};
-    if (params.metadata) {
-      for (const [key, value] of Object.entries(params.metadata)) {
-        if (typeof value === 'string' && value.length > 512) {
-          cleanMetadata[key] = value.substring(0, 509) + '...';
-        } else if (typeof value === 'object' && value !== null) {
-          // Сериализуем объекты для безопасности
-          const serialized = JSON.stringify(value);
-          if (serialized.length > 512) {
-            cleanMetadata[key] = serialized.substring(0, 509) + '...';
-          } else {
-            cleanMetadata[key] = value;
-          }
-        } else {
-          cleanMetadata[key] = value;
-        }
-      }
-    }
-
-    const requestBody: CreatePaymentRequest = {
+    const body = {
       amount: {
-        value: Number(params.amount).toFixed(2),
-        currency: params.currency || 'RUB'
+        value: params.amount.toFixed(2),
+        currency: params.currency,
       },
+      // Одностадийный платёж: деньги списываются сразу, подтверждать нечего
       capture: true,
       confirmation: {
         type: 'redirect',
-        return_url: params.returnUrl
+        return_url: params.returnUrl,
       },
-      description: description,
-      metadata: Object.keys(cleanMetadata).length > 0 ? cleanMetadata : undefined
+      description: trimDescription(params.description),
+      metadata: params.metadata,
+      // Чек обязателен по 54-ФЗ, без email его некуда отправить
+      receipt: {
+        customer: {
+          email: params.receiptEmail,
+          ...(params.receiptPhone ? { phone: params.receiptPhone } : {}),
+        },
+        items: params.receiptItems,
+      },
     };
 
-    // Добавляем чек для соблюдения 54-ФЗ согласно документации ЮKassa
-    if (params.customerEmail) {
-      requestBody.receipt = {
-        customer: {
-          email: params.customerEmail
-        },
-        items: [
-          {
-            description: params.description || 'Цифровая услуга',
-            quantity: '1.00',
-            amount: {
-              value: Number(params.amount).toFixed(2),
-              currency: 'RUB'
-            },
-            vat_code: 1,
-            payment_subject: 'service',
-            payment_mode: 'full_payment'
-          }
-        ]
-      };
+    const payment = await this.request<YookassaPayment>('/payments', {
+      method: 'POST',
+      body,
+      idempotenceKey: params.idempotenceKey,
+    });
+
+    if (!payment.confirmation?.confirmation_url) {
+      throw new YookassaError('ЮKassa не вернула ссылку на оплату');
     }
 
-    try {
-      console.log('Creating YooKassa payment with data:', {
-        amount: requestBody.amount,
-        description: requestBody.description,
-        return_url: requestBody.confirmation.return_url,
-        has_receipt: !!requestBody.receipt,
-        metadata_keys: requestBody.metadata ? Object.keys(requestBody.metadata) : []
-      });
-      
-      console.log('Full request body to YooKassa:');
-      console.log(JSON.stringify(requestBody, null, 2));
-
-      const response = await fetch(`${this.baseUrl}/payments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotence-Key': idempotenceKey,
-          'Authorization': `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('YooKassa API error details:');
-        console.error('Status:', response.status);
-        console.error('Status Text:', response.statusText);
-        console.error('Error response:', JSON.stringify(errorData, null, 2));
-        console.error('Request that caused error:', JSON.stringify(requestBody, null, 2));
-        throw new Error(`ЮKassa API error: ${errorData.description || errorData.detail || response.statusText}`);
-      }
-
-      const payment: YookassaPayment = await response.json();
-      return payment;
-    } catch (error: any) {
-      console.error('Error creating YooKassa payment:', error);
-      throw new Error(`Ошибка создания платежа: ${error.message}`);
-    }
+    return payment;
   }
 
-  /**
-   * Получение информации о платеже
-   */
   async getPayment(paymentId: string): Promise<YookassaPayment> {
-    try {
-      const response = await fetch(`${this.baseUrl}/payments/${paymentId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`ЮKassa API error: ${errorData.description || response.statusText}`);
-      }
-
-      const payment: YookassaPayment = await response.json();
-      return payment;
-    } catch (error: any) {
-      console.error('Error getting YooKassa payment:', error);
-      throw new Error(`Ошибка получения платежа: ${error.message}`);
-    }
+    return this.request<YookassaPayment>(`/payments/${encodeURIComponent(paymentId)}`, {
+      method: 'GET',
+    });
   }
 
-  /**
-   * Проверка подписи webhook'а от ЮKassa
-   */
-  verifyWebhookSignature(body: string, signature: string): boolean {
-    // Если webhook secret не настроен, пропускаем проверку подписи
-    if (!process.env.YOOKASSA_WEBHOOK_SECRET) {
-      console.warn('YOOKASSA_WEBHOOK_SECRET not set, skipping signature verification');
-      console.warn('For production, consider setting up webhook signature verification');
-      return true; // Разрешаем обработку без проверки подписи
-    }
-
-    // Если signature не передан, но secret настроен
-    if (!signature) {
-      console.warn('No signature provided but YOOKASSA_WEBHOOK_SECRET is set');
-      return true; // Все равно разрешаем, так как не все webhook'и ЮKassa могут содержать подпись
-    }
-
-    try {
-      const hmac = createHmac('sha256', process.env.YOOKASSA_WEBHOOK_SECRET);
-      hmac.update(body);
-      const expectedSignature = hmac.digest('hex');
-
-      return expectedSignature === signature;
-    } catch (error) {
-      console.error('Error verifying webhook signature:', error);
-      return true; // В случае ошибки разрешаем обработку
-    }
-  }
-
-  /**
-   * Обработка webhook'а от ЮKassa
-   */
-  async processWebhook(webhookData: YookassaWebhook): Promise<{
-    success: boolean;
-    paymentData?: YookassaPayment;
-    error?: string;
-  }> {
-    try {
-      const { type, event, object: payment } = webhookData;
-
-      if (type !== 'notification') {
-        return { success: false, error: 'Invalid webhook type' };
-      }
-
-      console.log(`Processing YooKassa webhook: ${event} for payment ${payment.id}`);
-
-      switch (event) {
-        case 'payment.succeeded':
-          return {
-            success: true,
-            paymentData: payment
-          };
-
-        case 'payment.canceled':
-          return {
-            success: true,
-            paymentData: payment
-          };
-
-        case 'payment.waiting_for_capture':
-          // Автоматически подтверждаем платеж, если нужно
-          return {
-            success: true,
-            paymentData: payment
-          };
-
-        default:
-          console.log(`Unhandled webhook event: ${event}`);
-          return { success: true };
-      }
-    } catch (error: any) {
-      console.error('Error processing YooKassa webhook:', error);
-      return { 
-        success: false, 
-        error: error.message 
-      };
-    }
-  }
-
-  /**
-   * Подтверждение платежа (capture)
-   */
-  async capturePayment(paymentId: string, amount?: number): Promise<YookassaPayment> {
-    const idempotenceKey = uuidv4();
-    
-    const requestBody: any = {};
-    if (amount) {
-      requestBody.amount = {
-        value: amount.toFixed(2),
-        currency: 'RUB'
-      };
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/payments/${paymentId}/capture`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotence-Key': idempotenceKey,
-          'Authorization': `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`ЮKassa API error: ${errorData.description || response.statusText}`);
-      }
-
-      const payment: YookassaPayment = await response.json();
-      return payment;
-    } catch (error: any) {
-      console.error('Error capturing YooKassa payment:', error);
-      throw new Error(`Ошибка подтверждения платежа: ${error.message}`);
-    }
-  }
-
-  /**
-   * Отмена платежа
-   */
-  async cancelPayment(paymentId: string): Promise<YookassaPayment> {
-    const idempotenceKey = uuidv4();
-
-    try {
-      const response = await fetch(`${this.baseUrl}/payments/${paymentId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotence-Key': idempotenceKey,
-          'Authorization': `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`
-        },
-        body: JSON.stringify({})
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`ЮKassa API error: ${errorData.description || response.statusText}`);
-      }
-
-      const payment: YookassaPayment = await response.json();
-      return payment;
-    } catch (error: any) {
-      console.error('Error canceling YooKassa payment:', error);
-      throw new Error(`Ошибка отмены платежа: ${error.message}`);
-    }
+  isNotificationIp(ip: string | undefined): boolean {
+    if (!ip) return false;
+    return ipInAnyCidr(ip, NOTIFICATION_IPS);
   }
 }
 
-export const yookassaService = new YookassaService(); 
+export const yookassaService = new YookassaService();
