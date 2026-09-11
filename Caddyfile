@@ -1,7 +1,16 @@
 # Reverse-proxy для прода. Сертификаты выпускаются и продлеваются автоматически.
 
 {
-	email {$ACME_EMAIL:admin@localhost}
+	# Кавычки обязательны: без них незаданный ACME_EMAIL оставляет директиву без
+	# аргумента и Caddy не стартует. Пустой адрес допустим — аккаунт ACME заведётся
+	# без контакта. Прежняя заглушка admin@localhost была хуже пустой: Let's Encrypt
+	# отбивал её как «Domain name needs at least one dot», и сертификата не было вовсе.
+	email "{$ACME_EMAIL}"
+
+	# Только Let's Encrypt. Запасной ZeroSSL из России отвечает не-JSON
+	# («invalid character 'A'»), то есть всё равно непригоден, а каждая попытка
+	# выпуска из-за него удваивалась и забивала лог.
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
 }
 
 {$DOMAIN} {

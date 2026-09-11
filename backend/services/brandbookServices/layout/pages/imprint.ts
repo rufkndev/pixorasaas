@@ -123,7 +123,7 @@ const render = async (doc: BrandbookDoc, ctx: PageContext): Promise<string> => {
     text({
       x: CONTENT.right,
       y: 182,
-      content: 'pixora.ru',
+      content: 'pixora-ai.ru',
       family: theme.heading.family,
       size: SIZE.small,
       weight: 700,
