@@ -13,6 +13,17 @@ import { PRICES } from '../../lib/legal';
 import GenerationQuota, { QuotaLimits } from '../../components/common/GenerationQuota';
 import React from 'react';
 
+// Сверено с полосами PDF и содержимым архива: обещать можно только то,
+// что сборка действительно отдаёт покупателю
+const BRANDBOOK_CONTENTS: Array<[string, string]> = [
+  ['Логотип в 7 версиях', 'Основная, горизонтальная, вертикальная, только знак, чёрная, белая и в фирменном цвете — SVG и PNG'],
+  ['Палитра от вашего логотипа', '6 цветов с HEX, RGB и CMYK и проверенным контрастом текста'],
+  ['Пара шрифтов с кириллицей', 'Файлы в архиве, лицензия разрешает коммерческое использование'],
+  ['Иконки и паттерны', '12 иконок в одном стиле, паттерны и подложки в фирменных цветах'],
+  ['Готовые макеты', 'Визитка для типографии, пост и сторис, обложка ВКонтакте, слайд, подпись письма'],
+  ['Правила и голос бренда', 'Слоган, характер, охранное поле, что делать нельзя и как писать тексты'],
+];
+
 // Компонент страницы генерации логотипа
 function LogoGeneratorContent() {
   const router = useRouter();
@@ -379,98 +390,24 @@ function LogoGeneratorContent() {
                         </div>
                       </div>
                       
-                      {/* Описание содержимого брендбука */}
+                      {/* Только то, что сборка действительно кладёт в архив */}
                       <div className="mt-8 border border-gray-200 rounded-lg p-6 bg-white">
-                        <h3 className="text-lg font-bold mb-4">Что входит в полный брендбук?</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Левая колонка */}
-                          <div className="space-y-5">
-                            {/* Логотип и название */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                Варианты логотипа
-                              </h4>
-                              <ul className="pl-7 space-y-1 text-sm text-gray-700">
-                                <li>Основная версия логотипа</li>
-                                <li>Монохромная версия (черно-белая)</li>
-                                <li>Инвертированная версия</li>
-                                <li>Упрощенная версия</li>
-                                <li>Логотип с названием</li>
-                              </ul>
+                        <h3 className="text-lg font-bold">Что входит в полный брендбук</h3>
+                        <p className="text-sm text-gray-600 mt-1 mb-5">
+                          PDF на ~15 страниц и архив с исходниками. Готово через несколько минут после оплаты.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                          {BRANDBOOK_CONTENTS.map(([title, text]) => (
+                            <div key={title} className="flex gap-3">
+                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <div>
+                                <p className="font-semibold text-gray-900">{title}</p>
+                                <p className="text-sm text-gray-600">{text}</p>
+                              </div>
                             </div>
-                            
-                            {/* Слоган */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                </svg>
-                                Уникальный слоган
-                              </h4>
-                              <p className="pl-7 text-sm text-gray-700">
-                                Генерация слогана с помощью искусственного интеллекта, который отражает ценности вашего бренда и запоминается клиентам.
-                              </p>
-                            </div>
-                            
-                            {/* Фирменные элементы и иконки */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                                Фирменные элементы и иконки
-                              </h4>
-                              <p className="pl-7 text-sm text-gray-700">
-                                Набор дополнительных графических элементов и иконок в фирменном стиле для использования в маркетинговых материалах и веб-дизайне.
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Правая колонка */}
-                          <div className="space-y-5">
-                            {/* Шрифты */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                                </svg>
-                                Фирменные шрифты
-                              </h4>
-                              <p className="pl-7 text-sm text-gray-700">
-                                Подбор идеальных шрифтов для вашего бренда с помощью ИИ, которые сочетаются с логотипом и передают характер бизнеса.
-                              </p>
-                            </div>
-                            
-                            {/* Цветовая палитра */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                </svg>
-                                Цветовая палитра
-                              </h4>
-                              <p className="pl-7 text-sm text-gray-700">
-                                Разработка гармоничной цветовой палитры, основанной на логотипе и названии, с основными и дополнительными цветами в различных форматах (HEX, RGB, CMYK).
-                              </p>
-                            </div>
-                            
-                            {/* Руководство по использованию */}
-                            <div>
-                              <h4 className="text-md font-semibold mb-2 flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                                Руководство по использованию
-                              </h4>
-                              <p className="pl-7 text-sm text-gray-700">
-                                Подробные инструкции по правильному использованию всех элементов бренда для поддержания единого стиля во всех материалах.
-                              </p>
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
 

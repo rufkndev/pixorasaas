@@ -153,18 +153,24 @@ export default function PricingPage() {
             <ul className="space-y-2 text-gray-700">
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">—</span>
-                Счётчик <strong>обновляется автоматически раз в {QUOTA_WINDOW_DAYS} дней</strong>.
-                Отсчёт идёт от первой генерации, дату обновления видно прямо в генераторе.
+                <span>
+                  Счётчик <strong>обновляется автоматически раз в {QUOTA_WINDOW_DAYS} дней</strong>.
+                  Отсчёт идёт от первой генерации, дату обновления видно прямо в генераторе.
+                </span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">—</span>
-                Оплата логотипа или брендбука <strong>сразу возвращает все генерации</strong> и
-                начинает новый период.
+                <span>
+                  Оплата логотипа или брендбука <strong>сразу возвращает все генерации</strong> и
+                  начинает новый период.
+                </span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-gray-400">—</span>
-                Бесплатные логотипы показываются с водяным знаком. Файлы без него, в высоком
-                разрешении и в векторе, открываются после оплаты.
+                <span>
+                  Бесплатные логотипы показываются с водяным знаком. Файлы без него, в высоком
+                  разрешении и в векторе, открываются после оплаты.
+                </span>
               </li>
             </ul>
           </div>
