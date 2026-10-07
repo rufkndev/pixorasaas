@@ -118,6 +118,7 @@ export default function RegisterPage() {
             type="text"
             autoComplete="name"
             value={fullName}
+            maxLength={120}
             onChange={(event) => setFullName(event.target.value)}
             className={inputClass}
           />
@@ -133,6 +134,7 @@ export default function RegisterPage() {
             autoComplete="email"
             required
             value={email}
+            maxLength={254}
             onChange={(event) => setEmail(event.target.value)}
             className={inputClass}
             placeholder="you@example.ru"
@@ -150,6 +152,7 @@ export default function RegisterPage() {
             required
             minLength={8}
             value={password}
+            maxLength={128}
             onChange={(event) => setPassword(event.target.value)}
             className={inputClass}
           />

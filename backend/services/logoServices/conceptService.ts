@@ -2,8 +2,10 @@ import axios from 'axios';
 import { z } from 'zod';
 
 import { apiUtils } from '../../utils/apiUtils';
+import { CLIENT_DATA_RULE, clientData } from '../../utils/llmJson';
 import { LogoPattern, pickPattern, pickVector } from '../../utils/logoPatterns';
 import { getStyleProfile } from '../../utils/styleLabels';
+import { log } from '../../logger';
 
 const MODEL = 'gpt-5-6-luna';
 
@@ -62,7 +64,7 @@ export class ConceptService {
         return { pattern, vector, ...parsed };
       }
     } catch (error: any) {
-      console.error('Не удалось получить концепцию логотипа:', error.message);
+      log.error('Не удалось получить концепцию логотипа:', error.message);
     }
 
     return { pattern, vector, ...this.fallback(pattern, industry, keywords) };
@@ -81,10 +83,13 @@ export class ConceptService {
 
     const lines = [
       'Ты арт-директор брендингового агентства. Придумай логотип для конкретной компании.',
+      CLIENT_DATA_RULE,
       '',
-      `Название: ${name}`,
-      `Ниша: ${industry}`,
-      `Ключевые слова: ${keywords}`,
+      clientData([
+        ['Название', name],
+        ['Ниша', industry],
+        ['Ключевые слова', keywords],
+      ]),
       `Характер: ${profile.tone}`,
       `Палитра: ${profile.logoPalette}`,
       '',
@@ -102,7 +107,7 @@ export class ConceptService {
     ];
 
     if (pattern.id === 'lettermark' || pattern.id === 'emblem') {
-      lines.push(`- monogram — 1-2 латинские буквы для названия «${name}» (транслитерируй первую букву).`);
+      lines.push('- monogram — 1-2 латинские буквы для названия из данных клиента (транслитерируй первую букву).');
     }
 
     if (usedSubjects.length > 0) {
@@ -152,7 +157,7 @@ export class ConceptService {
             .toUpperCase() || undefined,
       };
     } catch (error: any) {
-      console.error('Концепция логотипа не разобралась:', error.message);
+      log.error('Концепция логотипа не разобралась:', error.message);
       return null;
     }
   }

@@ -23,11 +23,12 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
 
+		# 'unsafe-eval' убран: собранному Next он не нужен, а XSS с ним получает eval.
 		# В CSP только то, что реально используется: хосты сгенерированных картинок
 		# и редирект на оплату. Google Fonts убран: шрифты брендбука вендорены
 		# в public/fonts и раздаются с нашего домена, так что IP посетителя больше
 		# никуда не уезжает. Возвращать хосты нельзя без правки страницы брендбука.
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.gen-api.ru https://gen-api.storage.yandexcloud.net; connect-src 'self'; form-action 'self' https://yoomoney.ru https://yookassa.ru; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://images.gen-api.ru https://gen-api.storage.yandexcloud.net; connect-src 'self'; form-action 'self' https://yoomoney.ru https://yookassa.ru; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 
 		-Server
 	}

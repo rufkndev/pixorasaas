@@ -6,40 +6,18 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import rateLimit from 'express-rate-limit';
 
-import {
-  YookassaError,
-  YookassaPayment,
-  trimDescription,
-  yookassaService,
-} from '../services/yookassaService';
-import {
-  brandbooksRepo,
-  consentsRepo,
-  generationUsageRepo,
-  logosRepo,
-  paymentsRepo,
-} from '../db/repositories';
+import { YookassaError, YookassaPayment, trimDescription, yookassaService } from '../services/yookassaService';
+import { brandbooksRepo, consentsRepo, logosRepo, paymentsRepo } from '../db/repositories';
 import { Payment } from '../db/types';
 import { requireAuth } from '../auth/middleware';
 import { createPaymentSchema, firstError, orderIdSchema } from '../auth/schemas';
 import { clientMeta } from '../auth/service';
 import { LEGAL_VERSIONS } from '../legal';
-import { buildBrandbook } from '../services/brandbookServices/brandbookBuilder';
 import { BuildProgress, toProgress } from '../services/brandbookServices/progress';
-import { logoService } from '../services/logoService';
-import { mailService } from '../services/mailService';
-import { brandbookReadyTemplate } from '../emails/brandbookReady';
+import { CURRENCY, PRODUCTS, startDelivery, syncWithYookassa } from '../services/orderService';
+import { log } from '../logger';
 
 const router = Router();
-
-// Цены только на сервере: клиент их не присылает и повлиять на них не может.
-// При изменении поправьте app/lib/legal.ts — там те же цифры для витрины.
-const PRODUCTS = {
-  logo: { price: 299, title: 'Логотип без водяного знака' },
-  brandbook: { price: 499, title: 'Брендбук' },
-} as const;
-
-const CURRENCY = 'RUB';
 
 // ИП на УСН: НДС нет. payment_subject/payment_mode — цифровая услуга, оплачена целиком
 const VAT_NONE = 1;
@@ -119,7 +97,7 @@ router.post('/yookassa/create-payment', requireAuth, paymentLimiter, async (req:
   try {
     // Оплачивать можно только свой логотип. Раньше выдача создавала запись
     // по данным из запроса, то есть по чему угодно, что прислал клиент.
-    const logo = await logosRepo.findLatestByUrl(userId, productData.logoUrl);
+    const logo = await logosRepo.findByIdForUser(productData.logoId, userId);
 
     if (!logo) {
       return res.status(404).json({ error: 'Логотип не найден. Сгенерируйте его заново.' });
@@ -129,6 +107,19 @@ router.post('/yookassa/create-payment', requireAuth, paymentLimiter, async (req:
     // логотип — нет: покупать нечего, он уже без водяного знака
     if (productType === 'logo' && logo.isPaid) {
       return res.status(409).json({ error: 'Этот логотип уже оплачен — он есть в личном кабинете.' });
+    }
+
+    // Стиль в записи авторитетнее присланного: именно им набран локап
+    const brandStyle = logo.style || productData.brandStyle;
+    const industry = logo.industry || productData.industry;
+
+    if (!logo.name) {
+      return res.status(409).json({ error: 'У логотипа не сохранилось название. Сгенерируйте его заново.' });
+    }
+
+    // Брендбук без ниши и стиля собрать нельзя — упадёт уже после списания денег
+    if (productType === 'brandbook' && (!brandStyle || !industry)) {
+      return res.status(400).json({ error: 'Для брендбука нужны ниша и стиль бренда' });
     }
 
     // Акцепт оферты — момент заключения договора, фиксируем в журнале
@@ -144,7 +135,7 @@ router.post('/yookassa/create-payment', requireAuth, paymentLimiter, async (req:
     });
 
     const orderId = randomUUID();
-    const description = trimDescription(`${product.title} «${productData.name}»`);
+    const description = trimDescription(`${product.title} «${logo.name}»`);
 
     // Строка заводится до обращения к ЮKassa: при сбое посередине останется
     // заказ, к которому можно привязать платёж, а не осиротевший платёж
@@ -154,7 +145,18 @@ router.post('/yookassa/create-payment', requireAuth, paymentLimiter, async (req:
       productType,
       amount: product.price,
       currency: CURRENCY,
-      productData: { ...productData, logoId: logo.id },
+      // Всё, что попадёт в PDF и в письмо, берётся из записи логотипа, а не от клиента
+      productData: {
+        logoId: logo.id,
+        logoUrl: logo.logoUrl,
+        name: logo.name,
+        keywords: logo.keywords || '',
+        slogan: logo.demoSlogan || '',
+        industry,
+        brandStyle,
+        email: productData.email,
+        phone: productData.phone,
+      },
       description,
     });
 
@@ -196,7 +198,7 @@ router.post('/yookassa/create-payment', requireAuth, paymentLimiter, async (req:
       confirmationUrl: payment.confirmation!.confirmation_url,
     });
   } catch (error: any) {
-    console.error('Не удалось создать платёж:', error.message);
+    log.error('Не удалось создать платёж:', error.message);
 
     const status = error instanceof YookassaError ? 502 : 500;
     return res.status(status).json({
@@ -232,7 +234,7 @@ router.get('/yookassa/payment/:orderId', requireAuth, statusLimiter, async (req:
 
     return res.status(200).json({ success: true, payment: publicPayment(synced, build) });
   } catch (error: any) {
-    console.error('Не удалось получить статус заказа:', error.message);
+    log.error('Не удалось получить статус заказа:', error.message);
     return res.status(502).json({ error: 'Не удалось проверить статус платежа' });
   }
 });
@@ -244,7 +246,7 @@ router.post('/yookassa/webhook', async (req: any, res: any) => {
   const ip = req.ip;
 
   if (!yookassaService.isNotificationIp(ip)) {
-    console.warn(`Уведомление ЮKassa с постороннего адреса ${ip}`);
+    log.warn(`Уведомление ЮKassa с постороннего адреса ${ip}`);
     return res.status(403).end();
   }
 
@@ -253,7 +255,7 @@ router.post('/yookassa/webhook', async (req: any, res: any) => {
 
   if (req.body?.type !== 'notification' || typeof paymentId !== 'string') {
     // Повтор такого уведомления ничего не изменит, поэтому 200
-    console.warn('Уведомление ЮKassa непонятного формата:', req.body?.type, req.body?.event);
+    log.warn('Уведомление ЮKassa непонятного формата:', req.body?.type, req.body?.event);
     return res.status(200).end();
   }
 
@@ -264,7 +266,7 @@ router.post('/yookassa/webhook', async (req: any, res: any) => {
       (typeof orderId === 'string' ? await paymentsRepo.findByOrderId(orderId) : null);
 
     if (!local) {
-      console.error(`Уведомление о неизвестном платеже ${paymentId} (заказ ${orderId})`);
+      log.error(`Уведомление о неизвестном платеже ${paymentId} (заказ ${orderId})`);
       return res.status(200).end();
     }
 
@@ -281,216 +283,9 @@ router.post('/yookassa/webhook', async (req: any, res: any) => {
   } catch (error: any) {
     // Любой код кроме 200 заставит ЮKassa повторять уведомление сутки —
     // здесь это как раз то, что нужно: сбой на нашей стороне
-    console.error('Ошибка обработки уведомления ЮKassa:', error.message);
+    log.error('Ошибка обработки уведомления ЮKassa:', error.message);
     return res.status(500).end();
   }
 });
-
-// Приводит локальный статус к тому, что говорит API ЮKassa
-async function syncWithYookassa(local: Payment): Promise<Payment> {
-  if (!local.yookassaPaymentId || local.status === 'succeeded') return local;
-
-  const remote = await yookassaService.getPayment(local.yookassaPaymentId);
-
-  if (remote.status !== 'succeeded') {
-    await paymentsRepo.markStatus(local.id, remote.status);
-    return { ...local, status: remote.status };
-  }
-
-  // Сумма из ответа сверяется с ценой заказа: расхождение означает, что
-  // платёж не наш или его подменили, товар по нему выдавать нельзя
-  const expected = PRODUCTS[local.productType].price;
-
-  if (Number(remote.amount.value) !== expected || remote.amount.currency !== local.currency) {
-    console.error(
-      `Платёж ${remote.id}: сумма ${remote.amount.value} ${remote.amount.currency}` +
-        ` вместо ${expected} ${local.currency}. Выдача остановлена.`
-    );
-    return local;
-  }
-
-  return (await paymentsRepo.markSucceeded(local.id)) ?? local;
-}
-
-// Выдача не должна задерживать ответ: вебхуку ЮKassa нужен быстрый 200,
-// а сборка брендбука занимает минуты. Ошибку внутри пишет сам deliverOrder.
-function startDelivery(payment: Payment): void {
-  if (payment.status !== 'succeeded' || payment.deliveryStatus === 'completed') return;
-
-  deliverOrder(payment).catch((error: any) => {
-    console.error(`Выдача заказа ${payment.orderId} сорвалась:`, error.message);
-  });
-}
-
-// Заявку на выдачу получает ровно один вызывающий — и вебхук, и опрос со
-// страницы успеха идут сюда. Гарантию даёт claimDelivery.
-async function deliverOrder(payment: Payment): Promise<void> {
-  const claimed = await paymentsRepo.claimDelivery(payment.id);
-
-  if (!claimed) return;
-
-  try {
-    // Оплата возвращает бесплатные генерации. Сбой счётчиков не должен
-    // мешать выдаче оплаченного заказа
-    if (claimed.userId) {
-      try {
-        await generationUsageRepo.reset(claimed.userId);
-      } catch (error: any) {
-        console.error('Не удалось сбросить счётчик генераций:', error.message);
-      }
-    }
-
-    if (claimed.productType === 'brandbook') {
-      await deliverBrandbook(claimed);
-    } else {
-      await deliverLogo(claimed);
-    }
-
-    await paymentsRepo.finishDelivery(claimed.id);
-    console.log(`Заказ ${claimed.orderId} (${claimed.productType}) выдан`);
-  } catch (error: any) {
-    // Заказ остаётся оплаченным и переходит в failed: следующий опрос
-    // со страницы успеха или повтор уведомления попробует снова
-    console.error(`Не удалось выдать заказ ${claimed.orderId}:`, error.message);
-    await paymentsRepo.failDelivery(claimed.id, error.message);
-  }
-}
-
-async function deliverLogo(payment: Payment): Promise<void> {
-  const { logoId, logoUrl, email, phone } = payment.productData;
-  const userId = payment.userId;
-
-  if (!userId) {
-    throw new Error('Заказ без пользователя: аккаунт удалён');
-  }
-
-  // logoId проверен при создании платежа, поиск по URL — запасной путь
-  const logo =
-    (logoId ? await logosRepo.findByIdForUser(logoId, userId) : null) ??
-    (await logosRepo.findLatestByUrl(userId, logoUrl));
-
-  if (!logo) {
-    throw new Error(`Логотип заказа ${payment.orderId} не найден`);
-  }
-
-  await logosRepo.markPaid(logo.id, {
-    orderId: payment.orderId,
-    paymentId: payment.yookassaPaymentId,
-    email,
-    phone: phone || null,
-  });
-
-  await buildVector(logo.id, logo.originalLogoUrl);
-}
-
-// Вектор стоит денег за каждую обводку, поэтому строится только здесь —
-// после оплаты, а не на каждое бесплатное превью. Сбой векторизации не повод
-// не отдать оплаченный заказ: растр у покупателя уже есть
-async function buildVector(logoId: number, sourceUrl: string | null): Promise<string | null> {
-  if (!sourceUrl) return null;
-
-  try {
-    const svgUrl = await logoService.vectorize(sourceUrl);
-    if (svgUrl) {
-      await logosRepo.setSvgUrl(logoId, svgUrl);
-    }
-    return svgUrl;
-  } catch (error: any) {
-    console.error('Не удалось векторизовать логотип:', error.message);
-    return null;
-  }
-}
-
-async function deliverBrandbook(payment: Payment): Promise<void> {
-  const { name, keywords, logoUrl, slogan, industry, brandStyle } = payment.productData;
-  const userId = payment.userId;
-  const orderId = payment.orderId;
-
-  if (!userId) {
-    throw new Error('Заказ без пользователя: аккаунт удалён');
-  }
-
-  // Оплата прошла, поэтому брендбук строится на чистом логотипе, а не на превью.
-  // Вектор строим до releaseSource, чтобы открытая копия легла рядом с растром
-  const paidLogo = await logosRepo.findLatestByUrl(userId, logoUrl);
-
-  if (paidLogo) {
-    await buildVector(paidLogo.id, paidLogo.originalLogoUrl);
-  }
-
-  const sourceLogoUrl = logoService.releaseSource(paidLogo?.originalLogoUrl || logoUrl);
-
-  // Стиль из записи логотипа авторитетнее данных заказа: именно им набран локап
-  const style = paidLogo?.style || brandStyle;
-
-  // Строка заводится до сборки, иначе оплативший минуты видит «Брендбук не найден».
-  // ON CONFLICT делает UNIQUE по order_id примитивом синхронизации, а не аварией.
-  const row = await brandbooksRepo.ensure({
-    userId,
-    orderId,
-    businessName: name,
-    keywords,
-    slogan: slogan || '',
-    originalLogoUrl: sourceLogoUrl,
-    status: 'processing',
-    paymentStatus: 'completed',
-    isDemo: false,
-    style,
-    industry,
-  });
-
-  // Готовый брендбук не пересобираем — это замена прежней проверки findByOrderId,
-  // которая теперь всегда находила бы строку
-  if (row.status === 'completed') {
-    console.warn(`Брендбук заказа ${orderId} уже собран`);
-    return;
-  }
-
-  // Сборку ведёт ровно один вызывающий, остальные выходят молча
-  const claimed = await brandbooksRepo.claimBuild(row.id);
-
-  if (!claimed) {
-    console.warn(`Брендбук заказа ${orderId} уже собирается`);
-    return;
-  }
-
-  await buildBrandbook({
-    brandbookId: row.id,
-    orderId,
-    name,
-    keywords,
-    industry,
-    style,
-    logoUrl: sourceLogoUrl,
-    slogan: slogan || '',
-    logo: paidLogo,
-  });
-
-  // Брендбук включает логотип, значит он тоже оплачен
-  await logosRepo.markPaidByUrl(userId, logoUrl, {
-    orderId,
-    paymentId: payment.yookassaPaymentId,
-  });
-
-  await notifyBrandbookReady(row.id, orderId, name, payment.productData.email);
-}
-
-// Сборка идёт минутами, и покупатель обычно уходит со страницы успеха.
-// Сбой почты не повод считать заказ невыданным — товар уже в кабинете.
-async function notifyBrandbookReady(
-  brandbookId: number,
-  orderId: string,
-  businessName: string,
-  email: string | undefined
-): Promise<void> {
-  if (!email) return;
-
-  const sent = await mailService.sendQuietly({
-    to: email,
-    ...brandbookReadyTemplate({ businessName, orderId }),
-  });
-
-  if (sent) await brandbooksRepo.markEmailSent(brandbookId);
-}
 
 export default router;

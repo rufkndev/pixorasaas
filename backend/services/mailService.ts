@@ -1,4 +1,5 @@
 import nodemailer, { Transporter } from 'nodemailer';
+import { log } from '../logger';
 
 export interface MailMessage {
   to: string;
@@ -56,7 +57,7 @@ export const mailService = {
       await this.send(message);
       return true;
     } catch (error: any) {
-      console.error(`Не удалось отправить письмо «${message.subject}»:`, error.message);
+      log.error(`Не удалось отправить письмо «${message.subject}»:`, error.message);
       return false;
     }
   },
@@ -67,7 +68,7 @@ export const mailService = {
       await getTransporter().verify();
       return true;
     } catch (error: any) {
-      console.error('SMTP недоступен:', error.message);
+      log.error('SMTP недоступен:', error.message);
       return false;
     }
   },

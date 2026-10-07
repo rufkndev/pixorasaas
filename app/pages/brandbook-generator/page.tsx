@@ -21,6 +21,7 @@ function BrandbookGeneratorContent() {
   const name = searchParams.get('name') || '';
   const keywords = searchParams.get('keywords') || '';
   const logoUrl = searchParams.get('logoUrl') || '';
+  const logoId = searchParams.get('logoId') || '';
   const industry = searchParams.get('industry') || '';
   const style = searchParams.get('style') || '';
   
@@ -35,10 +36,10 @@ function BrandbookGeneratorContent() {
     setMounted(true);
     
     // Перенаправление на главную, если нет необходимых данных
-    if (mounted && (!name || !keywords || !logoUrl)) {
+    if (mounted && (!name || !keywords || !logoUrl || !logoId)) {
       router.push('/');
     }
-  }, [mounted, name, keywords, logoUrl, router]);
+  }, [mounted, name, keywords, logoUrl, logoId, router]);
 
   // Полный брендбук после оплаты собирает сервер, а следит за этим страница
   // /pages/payment/success — сюда пользователь после оплаты не возвращается
@@ -59,13 +60,8 @@ function BrandbookGeneratorContent() {
 
       const response = await apiFetch(apiUrl, {
         method: 'POST',
-        body: JSON.stringify({
-          name,
-          keywords,
-          logoUrl,
-          industry,
-          brandStyle: style,
-        }),
+        // Сервер сам находит логотип по id и берёт только превью с водяным знаком
+        body: JSON.stringify({ logoId: Number(logoId) }),
       });
       
       const data = await response.json();
@@ -623,7 +619,7 @@ function BrandbookGeneratorContent() {
                               name: name,
                               keywords: keywords,
                               logoUrl: logoUrl,
-                              slogan: brandbook?.slogan || '',
+                              logoId: logoId,
                               industry: industry,
                               brandStyle: style
                             },
@@ -635,10 +631,12 @@ function BrandbookGeneratorContent() {
                         
                         <Link
                           href={{
-                            pathname: '/logo-generator',
+                            pathname: '/pages/logo-generator',
                             query: { 
                               name: name,
-                              keywords: keywords
+                              keywords: keywords,
+                              industry: industry,
+                              style: style
                             },
                           }}
                           className="py-3 px-6 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"

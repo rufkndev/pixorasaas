@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { log } from '../logger';
 
 export interface GeneratedResponse {
   request_id?: string;
@@ -37,7 +38,7 @@ export class ApiUtils {
         // Разовый обрыв связи не повод терять уже оплаченную генерацию:
         // сдаёмся только на последней попытке
         if (attempt === maxAttempts - 1) throw error;
-        console.error(`Опрос GenAPI не удался (попытка ${attempt + 1}):`, error.message);
+        log.error(`Опрос GenAPI не удался (попытка ${attempt + 1}):`, error.message);
       }
 
       // Отказ самой задачи разбирается вне catch: иначе собственный throw

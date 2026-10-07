@@ -3,7 +3,7 @@
 // При правке текста документа поднимите дату здесь и в backend/legal.ts.
 
 export const LEGAL_VERSIONS = {
-  pdn: '2026-08-27',
+  pdn: '2026-10-05',
   offer: '2026-08-27',
   marketing: '2026-08-27',
   cookies: '2026-08-27',
@@ -31,7 +31,7 @@ export const REQUISITES = {
 } as const;
 
 // Витрина. Считает цену всё равно сервер — те же цифры в
-// backend/routes/yookassaPayments.ts, менять нужно в обоих местах.
+// backend/services/orderService.ts, менять нужно в обоих местах.
 export const PRICES = {
   logo: 299,
   brandbook: 499,

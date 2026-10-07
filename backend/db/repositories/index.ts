@@ -6,8 +6,11 @@ export { namesRepo } from './namesRepo';
 export { logosRepo } from './logosRepo';
 export { brandbooksRepo } from './brandbooksRepo';
 export type { BrandbookPatch, CreateBrandbookInput } from './brandbooksRepo';
-export { paymentsRepo } from './paymentsRepo';
+export { paymentsRepo, MAX_DELIVERY_ATTEMPTS } from './paymentsRepo';
 export { generationUsageRepo, FREE_GENERATIONS, QUOTA_WINDOW_DAYS } from './generationUsageRepo';
 export type { GenerationKind, GenerationUsage } from './generationUsageRepo';
+
+export { ipUsageRepo, spendRepo } from './abuseRepo';
+export type { IpGenerationKind } from './abuseRepo';
 
 export * from '../types';

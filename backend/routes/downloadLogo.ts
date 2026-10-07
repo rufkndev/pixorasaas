@@ -6,9 +6,11 @@ import sharp from 'sharp';
 
 import { logosRepo } from '../db/repositories';
 import { requireAuth } from '../auth/middleware';
+import { logoIdSchema } from '../auth/schemas';
 import { resolveGeneratedLogoPath } from '../paths';
 import { rawNameFor } from '../services/logoService';
 import { fileSlug } from '../utils/slug';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -27,10 +29,14 @@ const rawPathFor = (sourceUrl: string | null): string | null => {
 // svg (вектор), original (кадр модели как есть), zip (всё сразу), jpg, webp
 router.get('/download-logo/:logoId', requireAuth, async (req: any, res) => {
   try {
-    const { logoId } = req.params;
+    const logoId = logoIdSchema.safeParse(req.params.logoId);
     const format = String(req.query.format || 'png').toLowerCase();
 
-    const logo = await logosRepo.findByIdForUser(logoId, req.user.id);
+    if (!logoId.success) {
+      return res.status(404).json({ error: 'Logo not found' });
+    }
+
+    const logo = await logosRepo.findByIdForUser(logoId.data, req.user.id);
 
     if (!logo) {
       return res.status(404).json({ error: 'Logo not found' });
@@ -111,7 +117,7 @@ router.get('/download-logo/:logoId', requireAuth, async (req: any, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}.png"`);
     return res.send(logoBuffer);
   } catch (error: any) {
-    console.error('Error downloading logo:', error.message);
+    log.error('Error downloading logo:', error.message);
     res.status(500).json({ error: 'Failed to download logo' });
   }
 });
@@ -128,7 +134,7 @@ function sendArchive(
 
   const archive = archiver('zip', { zlib: { level: 9 } });
   archive.on('error', (error) => {
-    console.error('Не удалось собрать архив логотипа:', error.message);
+    log.error('Не удалось собрать архив логотипа:', error.message);
     res.end();
   });
   archive.pipe(res);
@@ -152,30 +158,5 @@ function sendArchive(
 
   archive.finalize();
 }
-
-// Предпросмотр логотипа (вотермарка накладывается на фронтенде для неоплаченных)
-router.get('/preview-logo/:logoId', requireAuth, async (req: any, res) => {
-  try {
-    const logo = await logosRepo.findByIdForUser(req.params.logoId, req.user.id);
-
-    if (!logo) {
-      return res.status(404).json({ error: 'Logo not found' });
-    }
-
-    return res.status(200).json({
-      success: true,
-      logo: {
-        id: logo.id,
-        name: logo.name,
-        logoUrl: logo.logoUrl,
-        isPaid: logo.isPaid,
-        createdAt: logo.createdAt,
-      },
-    });
-  } catch (error: any) {
-    console.error('Error previewing logo:', error.message);
-    res.status(500).json({ error: 'Failed to preview logo' });
-  }
-});
 
 export default router;

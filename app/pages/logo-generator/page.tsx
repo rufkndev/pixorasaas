@@ -8,6 +8,7 @@ import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { apiFetch } from '../../lib/authClient';
+import { describeGenerationError } from '../../lib/generationErrors';
 import { PRICES } from '../../lib/legal';
 import GenerationQuota, { QuotaLimits } from '../../components/common/GenerationQuota';
 import React from 'react';
@@ -38,6 +39,9 @@ function LogoGeneratorContent() {
   // уходят в exclude, чтобы модель не предлагала то же самое
   const [history, setHistory] = useState<string[]>([]);
   const [shownSubjects, setShownSubjects] = useState<string[]>([]);
+  // Оплата и предпросмотр принимают id логотипа, а не ссылку на картинку
+  const [logoIds, setLogoIds] = useState<Record<string, number>>({});
+  const logoId = logoIds[logoUrl];
 
   // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
@@ -102,6 +106,10 @@ function LogoGeneratorContent() {
       // Устанавливаем URL сгенерированного логотипа
       setLogoUrl(data.logoUrl);
 
+      if (typeof data.logoId === 'number') {
+        setLogoIds((previous) => ({ ...previous, [data.logoUrl]: data.logoId }));
+      }
+
       if (data.subject) {
         setShownSubjects((previous) => [...previous, data.subject]);
       }
@@ -111,7 +119,7 @@ function LogoGeneratorContent() {
       if (err?.code === 'GENERATION_LIMIT') {
         setRemaining(0);
       } else {
-        setError(`Произошла ошибка при генерации логотипа: ${err.message || 'Неизвестная ошибка'}. Пожалуйста, попробуйте еще раз.`);
+        setError(describeGenerationError(err, 'Произошла ошибка при генерации логотипа'));
       }
     } finally {
       setIsGenerating(false);
@@ -277,7 +285,7 @@ function LogoGeneratorContent() {
                   </div>
                   
                   {/* Выбор пакета услуг */}
-                  {logoUrl && (
+                  {logoUrl && logoId && (
                     <div className="space-y-6">
                       <h2 className="text-xl font-bold text-gray-900 mb-2">Выберите пакет услуг</h2>
                       
@@ -309,7 +317,8 @@ function LogoGeneratorContent() {
                                   product: 'logo', 
                                   name: name,
                                   keywords: keywords,
-                                  logoUrl: logoUrl
+                                  logoUrl: logoUrl,
+                                  logoId: logoId
                                 },
                               }}
                               className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
@@ -356,10 +365,9 @@ function LogoGeneratorContent() {
                                     name: name,
                                     keywords: keywords,
                                     logoUrl: logoUrl,
+                                    logoId: logoId,
                                     industry: industry,
-                                    style: style,
-                                    slogan: '', 
-                                    isDemo: 'true'
+                                    style: style
                                   },
                                 }}
                                 className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none"

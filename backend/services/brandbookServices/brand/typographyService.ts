@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { log } from '../../../logger';
 
 // Шрифты лежат в репозитории и ставятся в образ системно, см. scripts/fetch-fonts.mjs.
 // Здесь нужны и пути к ttf (для метрик и для архива покупателю), и адрес css.
@@ -73,7 +74,7 @@ const filesFor = (slug: string): string[] => {
       .map((file) => path.join(dir, file));
   } catch {
     // В деве каталога может не быть, если шрифты ещё не скачаны скриптом
-    console.error(`Шрифт ${slug}: каталог ${dir} недоступен`);
+    log.error(`Шрифт ${slug}: каталог ${dir} недоступен`);
     return [];
   }
 };

@@ -1,4 +1,52 @@
 import { z } from 'zod';
+import { cleanBrandName, cleanText, isBrandName, isPromptSafe } from '../utils/text';
+
+// Длина проверяется после чистки: иначе невидимые символы съедали бы лимит,
+// а строка из одних пробелов проходила бы проверку на обязательность
+const textLine = (max: number, required?: string) => {
+  const inner = z.string().max(max, `Не длиннее ${max} символов`);
+  return z
+    .string({ required_error: required, invalid_type_error: 'Некорректное значение' })
+    .transform((value) => cleanText(value))
+    .pipe(required ? inner.min(1, required) : inner);
+};
+
+const PROMPT_UNSAFE_MESSAGE = 'Уберите ссылки и символы < > { } ` \\';
+
+// Поля, которые уходят в промпт: длина жёсткая, разметка и ссылки запрещены
+const promptText = (max: number, required?: string) =>
+  textLine(max, required).refine(isPromptSafe, PROMPT_UNSAFE_MESSAGE);
+
+const brandName = z
+  .string({ required_error: 'Укажите название' })
+  .transform(cleanBrandName)
+  .pipe(
+    z
+      .string()
+      .min(1, 'Укажите название')
+      .max(60, 'Название не длиннее 60 символов')
+      .refine(
+        isBrandName,
+        "В названии допустимы буквы (кириллица и латиница), цифры, пробел и знаки - & . ' + !"
+      )
+  );
+
+// Списки исключений присылает клиент, но собраны они из нашей же выдачи. Негодный
+// элемент отбрасывается, а не валит запрос: за него пользователь не отвечает
+const excludeList = (maxItems: number) =>
+  z
+    .array(z.string().max(200))
+    .max(maxItems)
+    .transform((items) =>
+      items
+        .map((item) => cleanText(item))
+        .filter((item) => item.length > 0 && item.length <= 60 && isPromptSafe(item))
+    );
+
+const phone = z
+  .string()
+  .transform((value) => cleanText(value))
+  .pipe(z.string().max(30).regex(/^[0-9+()\- ]*$/, 'В телефоне допустимы цифры, +, скобки и дефис'));
 
 const email = z
   .string()
@@ -14,7 +62,7 @@ const password = z
   .min(8, 'Пароль должен быть не короче 8 символов')
   .max(128, 'Пароль слишком длинный');
 
-const fullName = z.string().trim().min(1).max(120).optional();
+const fullName = promptText(120).optional();
 
 export const registerSchema = z.object({
   email,
@@ -52,83 +100,73 @@ export const deleteAccountSchema = z.object({
 });
 
 export const contactSchema = z.object({
-  name: z.string().trim().min(1, 'Укажите имя').max(120),
+  name: promptText(120, 'Укажите имя'),
   email,
-  message: z.string().trim().min(1, 'Напишите сообщение').max(5000),
+  // Ссылки в обращении допустимы: письмо уходит только нам
+  message: z
+    .string({ required_error: 'Напишите сообщение' })
+    .transform((value) => cleanText(value, { multiline: true }))
+    .pipe(z.string().min(1, 'Напишите сообщение').max(5000, 'Не длиннее 5000 символов')),
   consentPdn: z.literal(true, {
     errorMap: () => ({ message: 'Требуется согласие на обработку персональных данных' }),
   }),
 });
-
-// Поля уходят в промпт как есть, поэтому длину ограничиваем жёстко
-const promptField = z.string().trim().max(100, 'Не длиннее 100 символов');
 
 // Ключи STYLE_PROFILES из backend/utils/styleLabels.ts. От стиля зависят название,
 // логотип, палитра, шрифты и вёрстка брендбука — список должен быть один на всё.
 export const BRAND_STYLES = ['modern', 'classic', 'creative', 'professional', 'playful'] as const;
 
 export const generateNamesSchema = z.object({
-  industry: promptField.min(1, 'Укажите нишу бизнеса'),
-  keywords: promptField.min(1, 'Укажите ключевые слова'),
+  industry: promptText(100, 'Укажите нишу бизнеса'),
+  keywords: promptText(100, 'Укажите ключевые слова'),
   style: z.enum(BRAND_STYLES, {
     errorMap: () => ({ message: 'Выберите стиль из списка' }),
   }),
-  preferences: promptField.optional().default(''),
+  preferences: promptText(100).optional().default(''),
   language: z.enum(['cyrillic', 'latin', 'any']).optional().default('any'),
   // Кнопка «Ещё варианты» присылает уже показанные названия
-  exclude: z.array(z.string().trim().min(1).max(60)).max(60).optional().default([]),
+  exclude: excludeList(60).optional().default([]),
 });
 
-// Название сюда приходит с шага выбора, поэтому оно длиннее promptField
 export const generateLogoSchema = z.object({
-  name: z.string().trim().min(1, 'Укажите название').max(120),
-  keywords: promptField.min(1, 'Укажите ключевые слова'),
-  industry: promptField.optional().default(''),
+  name: brandName,
+  keywords: promptText(100, 'Укажите ключевые слова'),
+  industry: promptText(100).optional().default(''),
   style: z.enum(BRAND_STYLES).optional().default('modern'),
   // Приёмы и предметы, уже показанные пользователю на этой странице
-  exclude: z.array(z.string().trim().min(1).max(60)).max(40).optional().default([]),
+  exclude: excludeList(40).optional().default([]),
 });
 
-// Заказ. Ни цену, ни адрес возврата, ни номер заказа клиент не присылает —
-// всё это сервер считает сам.
-const orderField = z.string().trim().max(200);
+export const logoIdSchema = z.coerce
+  .number({ invalid_type_error: 'Некорректный логотип' })
+  .int('Некорректный логотип')
+  .positive('Некорректный логотип');
 
+// Заказ. Ни цену, ни адрес возврата, ни номер заказа клиент не присылает —
+// всё это сервер считает сам. Название, ключевые слова и слоган тоже берутся
+// из записи логотипа: в оплаченный PDF не должен попасть текст из запроса.
 export const createPaymentSchema = z.object({
   productType: z.enum(['logo', 'brandbook'], {
     errorMap: () => ({ message: 'Неизвестный товар' }),
   }),
   productData: z.object({
-    name: orderField.min(1, 'Не указано название бренда'),
-    keywords: orderField.min(1, 'Не указаны ключевые слова'),
-    logoUrl: orderField.min(1, 'Не выбран логотип'),
+    // id, а не URL: логотип и его файлы сервер находит сам по своей записи
+    logoId: logoIdSchema,
     // Без email нельзя выставить чек, этого требует 54-ФЗ
     email,
-    phone: z.string().trim().max(30).optional().default(''),
-    slogan: z.string().trim().max(300).optional().default(''),
-    industry: orderField.optional().default(''),
-    // Именно enum, а не строка: от стиля зависят палитра, шрифты и вёрстка
-    // брендбука, а опечатка тихо свалила бы всё в умолчания
+    phone: phone.optional().default(''),
+    // Запасные значения для логотипов, у которых в записи нет ниши или стиля
+    industry: promptText(100).optional().default(''),
     brandStyle: z.enum(BRAND_STYLES).optional(),
   }),
   acceptOffer: z.literal(true, {
     errorMap: () => ({ message: 'Необходимо принять условия публичной оферты' }),
   }),
-}).superRefine((value, ctx) => {
-  // Брендбук без ниши и стиля собрать нельзя — упадёт уже после списания денег
-  if (value.productType !== 'brandbook') return;
-
-  for (const field of ['industry', 'brandStyle'] as const) {
-    if (!value.productData[field]) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['productData', field],
-        message: 'Для брендбука нужны ниша и стиль бренда',
-      });
-    }
-  }
 });
 
 export const orderIdSchema = z.string().uuid('Некорректный номер заказа');
+
+export const demoBrandbookSchema = z.object({ logoId: logoIdSchema });
 
 // Для формы достаточно первой ошибки
 export const firstError = (error: z.ZodError): string =>

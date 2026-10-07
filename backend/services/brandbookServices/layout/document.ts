@@ -4,6 +4,7 @@ import { LogoAsset } from '../brand/logoAssetService';
 import { BrandGuidelines } from '../content/guidelinesService';
 import { Mockup } from '../mockups';
 import { Theme } from './theme';
+import { log } from '../../../logger';
 
 // Всё, что полосы читают. Собирается один раз в render/pdf.ts: полоса не
 // ходит ни в базу, ни в сервисы — она только рисует переданное.
@@ -84,7 +85,7 @@ export const renderPages = async (
       });
       rendered.push({ key: module.key, svg });
     } catch (error: any) {
-      console.error(`Полоса «${module.title}» не собралась:`, error.message);
+      log.error(`Полоса «${module.title}» не собралась:`, error.message);
     }
   }
 

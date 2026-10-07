@@ -10,6 +10,7 @@ import { businessCard } from './businessCard';
 import { emailSignature } from './emailSignature';
 import { presentation } from './presentation';
 import { socialPost, socialStory, vkCover } from './social';
+import { log } from '../../../logger';
 
 export interface Mockup {
   id: string;
@@ -181,7 +182,7 @@ export const buildMockups = async (input: MockupsInput): Promise<Mockup[]> => {
       });
     } catch (error: any) {
       // Один сбойный макет не должен унести остальные
-      console.error(`Макет не собрался:`, error.message);
+      log.error(`Макет не собрался:`, error.message);
     }
   }
 
@@ -208,7 +209,7 @@ export const buildMockups = async (input: MockupsInput): Promise<Mockup[]> => {
       });
     }
   } catch (error: any) {
-    console.error('Подпись письма не собралась:', error.message);
+    log.error('Подпись письма не собралась:', error.message);
   }
 
   return mockups;

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import opentype from 'opentype.js';
+import { log } from '../../../logger';
 
 // Ширины читаются из самих ttf, а не растровым трюком: lockupService.measure()
 // рендерит полный растр и сканирует пиксели на каждую строку, а на пятнадцати
@@ -72,7 +73,7 @@ const load = (font: FontRef): Face[] => {
         ),
       });
     } catch (error: any) {
-      console.error(`Метрики шрифта ${font.family}: ${file} не читается — ${error.message}`);
+      log.error(`Метрики шрифта ${font.family}: ${file} не читается — ${error.message}`);
     }
   }
 
@@ -140,7 +141,7 @@ export const measure = (value: string, style: TextStyle): number => {
     // Шрифты не скачаны (в деве бывает) — грубая оценка вместо падения
     if (!complained.has(style.font.slug)) {
       complained.add(style.font.slug);
-      console.error(`Метрики шрифта ${style.font.family}: файлов нет, ширина оценивается грубо`);
+      log.error(`Метрики шрифта ${style.font.family}: файлов нет, ширина оценивается грубо`);
     }
     return [...value].length * style.size * 0.55 + tracking;
   }

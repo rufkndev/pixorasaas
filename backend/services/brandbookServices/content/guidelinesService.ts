@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { clamp, requestJson } from '../../../utils/llmJson';
+import { CLIENT_DATA_RULE, clamp, clientData, requestJson } from '../../../utils/llmJson';
 import { quoted } from '../../../utils/slug';
 import { getStyleProfile } from '../../../utils/styleLabels';
 import { BrandColor } from '../brand/paletteService';
@@ -48,7 +48,8 @@ const schema = z.object({
 const SYSTEM =
   'Ты бренд-стратег и автор брендбуков для российского малого бизнеса. ' +
   'Пишешь по-русски, конкретно, без маркетинговой воды. ' +
-  'Отвечаешь только валидным JSON без markdown и пояснений.';
+  'Отвечаешь только валидным JSON без markdown и пояснений. ' +
+  CLIENT_DATA_RULE;
 
 export interface GuidelinesInput {
   name: string;
@@ -66,10 +67,12 @@ const buildPrompt = (input: GuidelinesInput): string => {
   const body = input.fonts.find((font) => font.role === 'body');
 
   return [
-    `Бренд: ${quoted(input.name)}.`,
-    input.slogan ? `Слоган: «${input.slogan}».` : '',
-    `Ниша: ${input.industry || input.keywords}.`,
-    `Ключевые характеристики: ${input.keywords}.`,
+    clientData([
+      ['Бренд', quoted(input.name)],
+      ['Слоган', input.slogan],
+      ['Ниша', input.industry || input.keywords],
+      ['Ключевые характеристики', input.keywords],
+    ]),
     `Тон бренда: ${profile.tone}.`,
     '',
     'Уже подобрано, ссылайся на это конкретно:',

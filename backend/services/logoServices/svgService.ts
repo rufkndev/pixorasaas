@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { log } from '../../logger';
 
 // Recraft всегда отдаёт квадрат 2048, но опираться на это вслепую нельзя
 const DEFAULT_VIEWBOX = 2048;
@@ -165,7 +166,7 @@ export class SvgService {
           `width="${Math.round(side)}" height="${Math.round(side)}">`
       );
     } catch (error: any) {
-      console.error('Не удалось обрезать поля логотипа:', error.message);
+      log.error('Не удалось обрезать поля логотипа:', error.message);
       return svg;
     }
   }

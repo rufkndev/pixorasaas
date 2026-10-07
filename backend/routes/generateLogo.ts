@@ -1,10 +1,16 @@
 import { Router } from 'express';
 import { logoService } from '../services/logoService';
-import { generationUsageRepo, logosRepo } from '../db/repositories';
+import { logosRepo } from '../db/repositories';
+import { isRefusal, reserveFreeGeneration } from '../services/freeGenerationGuard';
+import { BusyError, Semaphore } from '../utils/semaphore';
+import { LOGO_CONCURRENCY, LOGO_QUEUE } from '../limits';
 import { requireAuth } from '../auth/middleware';
 import { generateLogoSchema, firstError } from '../auth/schemas';
+import { log } from '../logger';
 
 const router = Router();
+
+const logoSlots = new Semaphore(LOGO_CONCURRENCY, LOGO_QUEUE);
 
 // Маршрут для генерации логотипа
 router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
@@ -23,17 +29,14 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
     const logoIndustry = parsed.data.industry || 'general';
     const userId = req.user.id;
 
-    // Списываем попытку до генерации: проверка и списание в одном запросе,
-    // иначе параллельные запросы пролезли бы сверх лимита
-    const remaining = await generationUsageRepo.consume(userId, 'logos');
+    // Попытка списывается до генерации, вместе с лимитом на адрес и бюджетом
+    const pass = await reserveFreeGeneration(req, 'logos');
 
-    if (remaining === null) {
-      return res.status(403).json({
-        error: 'Бесплатные генерации логотипов закончились. Они обновятся автоматически, а оплата логотипа или брендбука возвращает их сразу.',
-        code: 'GENERATION_LIMIT',
-        remaining: 0,
-      });
+    if (isRefusal(pass)) {
+      return res.status(pass.status).json(pass.body);
     }
+
+    const { remaining } = pass;
 
     // История нужна, чтобы повторная генерация не выдала тот же знак.
     // Её недоступность не повод отказывать в генерации
@@ -41,26 +44,37 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
     try {
       history = await logosRepo.recentConcepts(userId, businessName);
     } catch (historyError: any) {
-      console.error('Не удалось прочитать историю логотипов:', historyError.message);
+      log.error('Не удалось прочитать историю логотипов:', historyError.message);
     }
 
     // Генерация логотипа. Наружу уходит только превью с водяным знаком —
     // чистый файл выдаёт /api/download-logo после проверки оплаты
     let stored: Awaited<ReturnType<typeof logoService.generateLogo>>;
     try {
-      stored = await logoService.generateLogo(
-        businessName,
-        keywords,
-        logoIndustry,
-        style,
-        history.patterns,
-        [...exclude, ...history.subjects]
+      stored = await logoSlots.run(() =>
+        logoService.generateLogo(
+          businessName,
+          keywords,
+          logoIndustry,
+          style,
+          history.patterns,
+          [...exclude, ...history.subjects]
+        )
       );
     } catch (generationError: any) {
       // Попытка не должна сгорать из-за сбоя на нашей стороне
-      await generationUsageRepo.release(userId, 'logos');
+      await pass.release();
+
+      if (generationError instanceof BusyError) {
+        return res.status(503).json({
+          error: 'Сейчас генерируется слишком много логотипов. Попробуйте через минуту — попытка не списана.',
+          code: 'BUSY',
+        });
+      }
       throw generationError;
     }
+
+    await pass.commit();
 
     // Логотип уже сгенерирован — сбой записи не повод возвращать ошибку
     try {
@@ -92,7 +106,7 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
         remaining,
       });
     } catch (dbError: any) {
-      console.error('Не удалось сохранить логотип:', dbError.message);
+      log.error('Не удалось сохранить логотип:', dbError.message);
       return res.status(200).json({
         success: true,
         logoUrl: stored.previewUrl,
@@ -106,13 +120,10 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
       });
     }
   } catch (error: any) {
-    console.error('Error generating logo:', error);
+    log.error('Error generating logo:', error);
 
-    return res.status(500).json({
-      error: 'Something went wrong',
-      message: error.message,
-      details: error.response?.data || null,
-    });
+    // Подробности только в лог: в тексте ошибки бывают ответ GenAPI и пути на диске
+    return res.status(500).json({ error: 'Не удалось сгенерировать логотип. Попробуйте ещё раз.' });
   }
 });
 
@@ -140,7 +151,7 @@ router.get('/user-logos/:userId', requireAuth, async (req: any, res: any) => {
       })),
     });
   } catch (error: any) {
-    console.error('Error fetching user logos:', error.message);
+    log.error('Error fetching user logos:', error.message);
     return res.status(500).json({ error: 'Failed to fetch logos' });
   }
 });

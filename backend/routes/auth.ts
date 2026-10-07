@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
 import { authTokensRepo, consentsRepo, sessionsRepo, usersRepo } from '../db/repositories';
 import { isUniqueViolation } from '../db/pool';
 import { LEGAL_VERSIONS } from '../legal';
-import { hashPassword, verifyPassword } from '../auth/password';
+import { burnPasswordCheck, hashPassword, verifyPassword } from '../auth/password';
 import { clearAuthCookies, REFRESH_COOKIE } from '../auth/cookies';
 import { clientMeta, issueSession, publicUser, rotateSession } from '../auth/service';
 import { requireAuth } from '../auth/middleware';
@@ -28,6 +28,8 @@ import {
 import { mailService } from '../services/mailService';
 import { verifyEmailTemplate } from '../emails/verifyEmail';
 import { resetPasswordTemplate } from '../emails/resetPassword';
+import { isDisposableEmail } from '../utils/disposableEmail';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -58,6 +60,14 @@ const sessionLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Слишком много запросов. Повторите позже.' },
 });
+
+// Писем одного вида на один адрес в час. Лимит по IP не спасает адресата:
+// злоумышленник меняет адреса и заваливает чужой ящик, а заодно портит
+// репутацию нашего домена в Postbox
+const EMAILS_PER_HOUR = 3;
+
+const canSendAgain = async (userId: string, kind: 'email_verify' | 'password_reset') =>
+  (await authTokensRepo.countRecent(userId, kind, 60)) < EMAILS_PER_HOUR;
 
 // Выпускает токен подтверждения и отправляет письмо
 const sendVerificationEmail = async (user: {
@@ -91,6 +101,14 @@ router.post('/register', emailLimiter, async (req, res) => {
   const { email, password, fullName, consents } = parsed.data;
   const meta = clientMeta(req);
 
+  // Одноразовая почта — главный способ завести десятки аккаунтов под бесплатные генерации
+  if (isDisposableEmail(email)) {
+    return res.status(400).json({
+      error: 'Регистрация с временных почтовых адресов недоступна. Укажите постоянный адрес.',
+      code: 'DISPOSABLE_EMAIL',
+    });
+  }
+
   // Ответ одинаков всегда: по нему нельзя узнать, занят ли адрес
   const genericResponse = {
     success: true,
@@ -102,7 +120,7 @@ router.post('/register', emailLimiter, async (req, res) => {
 
     if (existing) {
       // Почта не подтверждена — шлём письмо ещё раз. Подтверждённому не пишем.
-      if (!existing.emailVerifiedAt) {
+      if (!existing.emailVerifiedAt && (await canSendAgain(existing.id, 'email_verify'))) {
         await sendVerificationEmail(existing);
       }
       return res.status(200).json(genericResponse);
@@ -146,7 +164,7 @@ router.post('/register', emailLimiter, async (req, res) => {
       return res.status(200).json(genericResponse);
     }
 
-    console.error('Ошибка регистрации:', error.message);
+    log.error('Ошибка регистрации:', error.message);
     return res.status(500).json({ error: 'Не удалось завершить регистрацию' });
   }
 });
@@ -181,7 +199,7 @@ router.post('/verify-email', credentialsLimiter, async (req, res) => {
 
     return res.status(200).json({ success: true, user: publicUser(user) });
   } catch (error: any) {
-    console.error('Ошибка подтверждения почты:', error.message);
+    log.error('Ошибка подтверждения почты:', error.message);
     return res.status(500).json({ error: 'Не удалось подтвердить почту' });
   }
 });
@@ -202,17 +220,14 @@ router.post('/resend-verification', emailLimiter, async (req, res) => {
     const user = await usersRepo.findByEmailWithSecret(parsed.data.email);
 
     if (user && !user.emailVerifiedAt) {
-      // Не больше трёх писем в час на аккаунт, поверх лимита по IP
-      const recent = await authTokensRepo.countRecent(user.id, 'email_verify', 60);
-
-      if (recent < 3) {
+      if (await canSendAgain(user.id, 'email_verify')) {
         await sendVerificationEmail(user);
       }
     }
 
     return res.status(200).json(genericResponse);
   } catch (error: any) {
-    console.error('Ошибка повторной отправки подтверждения:', error.message);
+    log.error('Ошибка повторной отправки подтверждения:', error.message);
     return res.status(200).json(genericResponse);
   }
 });
@@ -228,7 +243,9 @@ router.post('/login', credentialsLimiter, async (req, res) => {
 
   try {
     const user = await usersRepo.findByEmailWithSecret(email);
-    const passwordOk = user ? await verifyPassword(user.passwordHash, password) : false;
+    const passwordOk = user
+      ? await verifyPassword(user.passwordHash, password)
+      : await burnPasswordCheck(password);
 
     if (!user || !passwordOk) {
       return res.status(401).json({ error: 'Неверный email или пароль' });
@@ -246,7 +263,7 @@ router.post('/login', credentialsLimiter, async (req, res) => {
 
     return res.status(200).json({ success: true, user: publicUser(user) });
   } catch (error: any) {
-    console.error('Ошибка входа:', error.message);
+    log.error('Ошибка входа:', error.message);
     return res.status(500).json({ error: 'Не удалось выполнить вход' });
   }
 });
@@ -269,7 +286,7 @@ router.post('/refresh', sessionLimiter, async (req, res) => {
 
     return res.status(200).json({ success: true, user: publicUser(user) });
   } catch (error: any) {
-    console.error('Ошибка обновления сессии:', error.message);
+    log.error('Ошибка обновления сессии:', error.message);
     clearAuthCookies(res);
     return res.status(401).json({ error: 'Сессия истекла' });
   }
@@ -283,7 +300,7 @@ router.post('/logout', sessionLimiter, async (req, res) => {
       await sessionsRepo.deleteByTokenHash(hashToken(refreshToken));
     }
   } catch (error: any) {
-    console.error('Ошибка выхода:', error.message);
+    log.error('Ошибка выхода:', error.message);
   }
 
   // Куки чистим даже если удалить сессию не вышло
@@ -302,7 +319,7 @@ router.get('/me', sessionLimiter, requireAuth, async (req, res) => {
 
     return res.status(200).json({ user: publicUser(user) });
   } catch (error: any) {
-    console.error('Ошибка получения профиля:', error.message);
+    log.error('Ошибка получения профиля:', error.message);
     return res.status(500).json({ error: 'Не удалось получить профиль' });
   }
 });
@@ -322,7 +339,7 @@ router.post('/forgot-password', emailLimiter, async (req, res) => {
   try {
     const user = await usersRepo.findByEmailWithSecret(parsed.data.email);
 
-    if (user) {
+    if (user && (await canSendAgain(user.id, 'password_reset'))) {
       await authTokensRepo.invalidateAll(user.id, 'password_reset');
 
       const token = generateOpaqueToken();
@@ -340,7 +357,7 @@ router.post('/forgot-password', emailLimiter, async (req, res) => {
 
     return res.status(200).json(genericResponse);
   } catch (error: any) {
-    console.error('Ошибка запроса сброса пароля:', error.message);
+    log.error('Ошибка запроса сброса пароля:', error.message);
     return res.status(200).json(genericResponse);
   }
 });
@@ -379,7 +396,7 @@ router.post('/reset-password', credentialsLimiter, async (req, res) => {
       message: 'Пароль изменён. Войдите с новым паролем.',
     });
   } catch (error: any) {
-    console.error('Ошибка сброса пароля:', error.message);
+    log.error('Ошибка сброса пароля:', error.message);
     return res.status(500).json({ error: 'Не удалось изменить пароль' });
   }
 });
@@ -410,7 +427,7 @@ router.delete('/account', credentialsLimiter, requireAuth, async (req, res) => {
       message: 'Аккаунт удалён, согласие на обработку персональных данных отозвано.',
     });
   } catch (error: any) {
-    console.error('Ошибка удаления аккаунта:', error.message);
+    log.error('Ошибка удаления аккаунта:', error.message);
     return res.status(500).json({ error: 'Не удалось удалить аккаунт' });
   }
 });

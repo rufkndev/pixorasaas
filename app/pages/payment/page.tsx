@@ -24,7 +24,7 @@ function PaymentContent() {
   const name = searchParams.get('name') || '';
   const keywords = searchParams.get('keywords') || '';
   const logoUrl = searchParams.get('logoUrl') || '';
-  const slogan = searchParams.get('slogan') || '';
+  const logoId = Number(searchParams.get('logoId') || 0);
   const industry = searchParams.get('industry') || '';
   const brandStyle = searchParams.get('brandStyle') || '';
   
@@ -51,15 +51,15 @@ function PaymentContent() {
     }
     
     // Проверка специфичных параметров для брендбука
-    if (mounted && product === 'brandbook' && (!name || !keywords || !logoUrl || !industry || !brandStyle)) {
+    if (mounted && product === 'brandbook' && (!name || !keywords || !logoUrl || !logoId || !industry || !brandStyle)) {
       router.push('/');
     }
     
     // Логотип нужен и для логотипа: сервер сверяет, что он принадлежит покупателю
-    if (mounted && product === 'logo' && (!name || !keywords || !logoUrl)) {
+    if (mounted && product === 'logo' && (!name || !keywords || !logoUrl || !logoId)) {
       router.push('/');
     }
-  }, [mounted, product, name, keywords, logoUrl, industry, brandStyle, user, router]);
+  }, [mounted, product, name, keywords, logoUrl, logoId, industry, brandStyle, user, router]);
 
   const productInfo = {
     logo: {
@@ -113,13 +113,12 @@ function PaymentContent() {
         method: 'POST',
         body: JSON.stringify({
           productType: product,
+          // Название, ключевые слова и слоган сервер берёт из записи логотипа
           productData: {
-            name,
-            keywords,
-            logoUrl,
+            logoId,
             email,
             phone,
-            ...(product === 'brandbook' && { slogan, industry, brandStyle }),
+            ...(product === 'brandbook' && { industry, brandStyle }),
           },
           acceptOffer: true,
         }),
@@ -270,6 +269,7 @@ function PaymentContent() {
                             type="email"
                             id="email"
                             value={email}
+                            maxLength={254}
                             onChange={(e) => setEmail(e.target.value)}
                             required
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
@@ -285,6 +285,7 @@ function PaymentContent() {
                             type="tel"
                             id="phone"
                             value={phone}
+                            maxLength={30}
                             onChange={(e) => setPhone(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                             placeholder="+7 (999) 999-99-99"

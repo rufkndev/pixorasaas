@@ -85,5 +85,16 @@ export const ipInCidr = (rawIp: string, cidr: string): boolean => {
   return (ip.value & mask) === (range.value & mask);
 };
 
+// Ключ для лимитов по адресу. IPv6 сводится к подсети /64: абоненту выдают
+// целый блок, и по одиночному адресу лимит обходился бы сменой адреса
+export const ipLimitKey = (rawIp: string | undefined | null): string => {
+  const ip = parseIp(rawIp || '');
+  if (!ip) return `raw:${(rawIp || 'unknown').slice(0, 64)}`;
+  if (ip.bits === 32) return stripV4Mapped(rawIp!.trim());
+
+  const prefix = (ip.value >> 64n).toString(16).padStart(16, '0');
+  return `${prefix.match(/.{4}/g)!.join(':')}::/64`;
+};
+
 export const ipInAnyCidr = (ip: string, cidrs: readonly string[]): boolean =>
   cidrs.some((cidr) => ipInCidr(ip, cidr));

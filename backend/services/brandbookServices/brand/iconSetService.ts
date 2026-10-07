@@ -1,6 +1,7 @@
 import { getIconData, iconToSVG, replaceIDs } from '@iconify/utils';
 
 import { commonTerms, expand, termsFor } from '../../../utils/iconTerms';
+import { log } from '../../../logger';
 
 // Наборы лежат в node_modules, а не тянутся с api.iconify.design: тот за
 // Cloudflare и без VPN отвечает через раз, а десятки последовательных запросов
@@ -304,7 +305,7 @@ export class IconSetService {
         });
     } catch (error: any) {
       // Иконки — некритичный шаг: без них полоса просто выпадет из документа
-      console.error('Не удалось подобрать иконки:', error.message);
+      log.error('Не удалось подобрать иконки:', error.message);
       return [];
     }
   }

@@ -285,9 +285,12 @@ export default function Dashboard() {
 
           {activeTab === 'logos' && (
             <div className="tab-content">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                 Сгенерированные логотипы
               </h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Неоплаченные логотипы хранятся 90 дней с момента создания, оплаченные — бессрочно.
+              </p>
               
               {isLoadingLogos ? (
                 <div className="flex justify-center items-center py-12">
@@ -352,7 +355,7 @@ export default function Dashboard() {
                         <div className="mt-4 flex flex-col space-y-2">
                           {!logo.isPaid ? (
                             <button 
-                              onClick={() => router.push(`/pages/payment?product=logo&name=${encodeURIComponent(logo.name)}&keywords=${encodeURIComponent(logo.keywords)}&logoUrl=${encodeURIComponent(logo.logoUrl)}`)}
+                              onClick={() => router.push(`/pages/payment?product=logo&name=${encodeURIComponent(logo.name)}&keywords=${encodeURIComponent(logo.keywords)}&logoUrl=${encodeURIComponent(logo.logoUrl)}&logoId=${logo.id}`)}
                               className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
                             >
                               Купить за {PRICES.logo} ₽

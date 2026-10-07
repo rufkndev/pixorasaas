@@ -6,6 +6,7 @@ import { AssetKind, LogoAsset } from '../brand/logoAssetService';
 import { Box } from './svg';
 import { parseSvg } from './svgSource';
 import { round } from './units';
+import { log } from '../../../logger';
 
 // Логотип на полосе — либо вложенный вектор (тогда полоса целиком остаётся
 // вектором и текст в PDF выделяется мышью), либо <image> с data-URI.
@@ -65,7 +66,7 @@ export const loadArtwork = async (asset: LogoAsset | undefined): Promise<Artwork
   try {
     artwork = await read(asset);
   } catch (error: any) {
-    console.error(`Логотип «${asset.kind}» не удалось вставить в полосу:`, error.message);
+    log.error(`Логотип «${asset.kind}» не удалось вставить в полосу:`, error.message);
   }
 
   cache.set(key, artwork);

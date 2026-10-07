@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
+import { log } from '../../../logger';
 
 const run = promisify(execFile);
 
@@ -48,9 +49,9 @@ const joinPages = async (dir: string, files: string[], out: string): Promise<voi
 
     if ((await pdfPageCount(out)) === files.length) return;
 
-    console.error('rsvg-convert собрал не все полосы, склеиваем постранично');
+    log.error('rsvg-convert собрал не все полосы, склеиваем постранично');
   } catch (error: any) {
-    console.error('Многостраничный вызов rsvg-convert не удался:', error.message);
+    log.error('Многостраничный вызов rsvg-convert не удался:', error.message);
   }
 
   const singles: string[] = [];

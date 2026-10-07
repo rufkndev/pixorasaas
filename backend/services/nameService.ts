@@ -2,8 +2,11 @@ import axios from 'axios';
 import { z } from 'zod';
 import { NameSuggestion } from '../db/types';
 import { apiUtils } from '../utils/apiUtils';
+import { CLIENT_DATA_RULE, clientData } from '../utils/llmJson';
 import { getStyleProfile } from '../utils/styleLabels';
+import { cleanBrandName, isBrandName } from '../utils/text';
 import { CREATIVE_VECTORS, NAME_PATTERNS, NamePattern, SCRIPT_LABELS, Script } from '../utils/namePatterns';
+import { log } from '../logger';
 
 export type NameLanguage = 'cyrillic' | 'latin' | 'any';
 
@@ -37,7 +40,8 @@ const SYSTEM_PROMPT =
   'Ты нейминг-специалист брендингового агентства. Придумываешь названия, которые не стыдно ' +
   'поставить на вывеску и внести в устав компании. Каждое название строишь строго тем приёмом, ' +
   'который назван в задании, а не тем, который тебе привычнее. ' +
-  'Отвечаешь строго в запрошенном формате, без пояснений и вступлений.';
+  'Отвечаешь строго в запрошенном формате, без пояснений и вступлений. ' +
+  CLIENT_DATA_RULE;
 
 // Одной строки «пиши латиницей» модели мало: в русскоязычном промпте она понимает
 // её как транслит русского слова, и пользователь получал «Vektor» вместо названия
@@ -102,10 +106,12 @@ export class NameService {
     const lines = [
       `Придумай ${slots.length} ${this.pluralNames(slots.length)} для бизнеса.`,
       '',
-      `Ниша: ${input.industry}`,
-      `Ключевые слова (смысловой ориентир, а не части названия): ${input.keywords}`,
+      clientData([
+        ['Ниша', input.industry],
+        ['Ключевые слова (смысловой ориентир, а не части названия)', input.keywords],
+        ['Дополнительные пожелания', input.preferences],
+      ]),
       `Стиль: ${profile.tone}`,
-      `Дополнительные пожелания: ${input.preferences?.trim() || 'нет'}`,
     ];
 
     if (profile.extraRule) {
@@ -187,7 +193,9 @@ export class NameService {
         const name = typeof source === 'string' ? source : source?.name;
         const meaning = typeof source === 'string' ? '' : source?.meaning;
         return {
-          name: this.cleanName(String(name ?? '')),
+          // Та же чистка, что на входе генератора логотипа: предложенное нами
+          // название не должно отбиваться на следующем шаге
+          name: cleanBrandName(this.cleanName(String(name ?? ''))),
           meaning: this.cleanMeaning(String(meaning ?? '')),
           pattern: typeof source === 'string' ? '' : String(source?.pattern ?? ''),
         };
@@ -196,7 +204,8 @@ export class NameService {
         suggestion.name.length >= 2 &&
         suggestion.name.length <= 40 &&
         suggestion.name.split(/\s+/).length <= 3 &&
-        !/[:;!?]/.test(suggestion.name)
+        !/[:;!?]/.test(suggestion.name) &&
+        isBrandName(suggestion.name)
       );
 
     return this.dedupe(suggestions);
@@ -340,7 +349,7 @@ export class NameService {
     }
 
     if (failed.length > 0) {
-      console.error(`Не ответили корзины названий: ${failed.length} из ${buckets.length}`);
+      log.error(`Не ответили корзины названий: ${failed.length} из ${buckets.length}`);
     }
 
     const received = results
@@ -361,7 +370,7 @@ export class NameService {
         const extra = await this.requestBucket(input, topUpSlots, extraExclude);
         collected = this.dedupe([...collected, ...this.keepUsable(extra, language, excluded)]);
       } catch (error: any) {
-        console.error('Не удалось добрать названия:', error.message);
+        log.error('Не удалось добрать названия:', error.message);
       }
     }
 

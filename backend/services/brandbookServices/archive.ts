@@ -8,6 +8,7 @@ import { resolveGeneratedLogoPath } from '../../paths';
 import { contentDisposition, fileSlug } from '../../utils/slug';
 import { iconSetService } from './brand/iconSetService';
 import { Mockup } from './mockups';
+import { log } from '../../logger';
 
 const FONTS_DIR = process.env.FONTS_DIR || path.join(process.cwd(), 'public', 'fonts');
 
@@ -126,7 +127,7 @@ export const streamBrandbookArchive = (res: Response, brandbook: Brandbook): voi
   const archive = archiver('zip', { zlib: { level: 9 } });
 
   archive.on('error', (error: any) => {
-    console.error('Сбой при сборке архива брендбука:', error.message);
+    log.error('Сбой при сборке архива брендбука:', error.message);
     res.end();
   });
 

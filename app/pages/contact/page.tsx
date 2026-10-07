@@ -182,7 +182,7 @@ export default function ContactPage() {
                   </svg>
                   <h3 className="mt-4 text-xl font-medium text-gray-900">Сообщение отправлено</h3>
                   <p className="mt-2 text-gray-700">
-                    Спасибо за ваше сообщение! Мы свяжемся с вами в ближайшее время.
+                    Спасибо! Ответим на указанную почту в течение рабочего дня.
                   </p>
                   <button
                     onClick={() => {
@@ -216,6 +216,7 @@ export default function ContactPage() {
                           type="text"
                           id="name"
                           value={name}
+                          maxLength={120}
                           onChange={(e) => setName(e.target.value)}
                           className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
                           required
@@ -231,6 +232,7 @@ export default function ContactPage() {
                           type="email"
                           id="email"
                           value={email}
+                          maxLength={254}
                           onChange={(e) => setEmail(e.target.value)}
                           className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"
                           required
@@ -245,6 +247,7 @@ export default function ContactPage() {
                         <textarea
                           id="message"
                           value={message}
+                          maxLength={5000}
                           onChange={(e) => setMessage(e.target.value)}
                           rows={6}
                           className="shadow-sm focus:ring-gray-500 focus:border-gray-500 block w-full sm:text-sm border-gray-300 rounded-md p-3"

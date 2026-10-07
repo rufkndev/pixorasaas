@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '../../context/AuthContext';
 import { ApiError, authApi } from '../../lib/authClient';
+import { safeInternalPath } from '../../lib/safeRedirect';
 import AuthShell, {
   FormError,
   FormSuccess,
@@ -29,8 +30,7 @@ function LoginForm() {
 
   // Куда вернуть после входа. Только внутренние пути: внешний redirect
   // превратил бы страницу входа в open redirect.
-  const rawNext = searchParams.get('next') || '/pages/dashboard';
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/pages/dashboard';
+  const next = safeInternalPath(searchParams.get('next'), '/pages/dashboard');
 
   useEffect(() => {
     if (!isLoading && user) {

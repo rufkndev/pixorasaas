@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { sessionsRepo } from '../db/repositories';
 import { ACCESS_COOKIE } from './cookies';
 import { verifyAccessToken } from './tokens';
+import { log } from '../logger';
 
 export interface AuthenticatedUser {
   id: string;
@@ -53,7 +54,7 @@ export const optionalAuth = async (
     const user = await resolveUser(req);
     if (user) req.user = user;
   } catch (error: any) {
-    console.error('Ошибка проверки сессии:', error.message);
+    log.error('Ошибка проверки сессии:', error.message);
   }
 
   next();
@@ -81,7 +82,7 @@ export const requireAuth = async (
     req.user = user;
     next();
   } catch (error: any) {
-    console.error('Ошибка проверки сессии:', error.message);
+    log.error('Ошибка проверки сессии:', error.message);
     res.status(500).json({ error: 'Server error' });
   }
 };

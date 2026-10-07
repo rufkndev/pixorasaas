@@ -11,6 +11,7 @@ import { LogoAsset, logoAssetService } from './brand/logoAssetService';
 import { BrandGuidelines, guidelinesService } from './content/guidelinesService';
 import { Mockup, buildMockups } from './mockups';
 import { buildBrandbookPdf } from './render/pdf';
+import { log } from '../../logger';
 
 export interface BuildInput {
   brandbookId: number;
@@ -173,7 +174,7 @@ const runStep = async (meta: StepMeta, ctx: BuildContext): Promise<void> => {
     await brandbooksRepo.finishStep(ctx.brandbookId, meta.key, patch ? 'done' : 'skipped');
   } catch (error: any) {
     const message = error?.message || 'неизвестная ошибка';
-    console.error(`Брендбук ${ctx.brandbookId}, шаг «${meta.label}»:`, message);
+    log.error(`Брендбук ${ctx.brandbookId}, шаг «${meta.label}»:`, message);
     await brandbooksRepo.finishStep(ctx.brandbookId, meta.key, 'failed', message);
 
     if (meta.critical) throw error;

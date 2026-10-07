@@ -1,15 +1,17 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 
 import { GeneratedLogo } from '../../../db/types';
 import { logosRepo } from '../../../db/repositories';
-import { resolveGeneratedLogoPath } from '../../../paths';
+import { isPreviewLogoFile, resolveGeneratedLogoPath } from '../../../paths';
 import { LockupMark, LockupLayout, lockupService } from '../../logoServices/lockupService';
 import { rasterService } from '../../logoServices/rasterService';
 import { logoService, rawNameFor } from '../../logoService';
 import { BrandColor } from './paletteService';
 import { assetName, assetUrl, newToken, saveAsset } from '../render/assets';
+import { log } from '../../../logger';
 
 export type AssetKind =
   | 'primary'
@@ -146,7 +148,7 @@ export class LogoAssetService {
 
       return vector || (await lockupService.rasterMark(mark.png));
     } catch (error: any) {
-      console.error('Не удалось выделить знак из кадра модели:', error.message);
+      log.error('Не удалось выделить знак из кадра модели:', error.message);
       return null;
     }
   }
@@ -173,7 +175,7 @@ export class LogoAssetService {
       return lockupService.vectorMark(fs.readFileSync(svgPath, 'utf8'));
     } catch (error: any) {
       // Без вектора локапы соберутся растром: хуже, но заказ выдан
-      console.error('Не удалось получить вектор знака:', error.message);
+      log.error('Не удалось получить вектор знака:', error.message);
       return null;
     }
   }
@@ -266,7 +268,7 @@ export class LogoAssetService {
         try {
           assets.push(await this.render(input, token, kind, await lockup(layout, inkColor)));
         } catch (error: any) {
-          console.error(`Блокировка «${kind}» не собралась:`, error.message);
+          log.error(`Блокировка «${kind}» не собралась:`, error.message);
         }
       }
     }
@@ -286,7 +288,7 @@ export class LogoAssetService {
           assets.push(await this.render(input, token, kind, '', await paintByAlpha(sourcePng, color)));
         }
       } catch (error: any) {
-        console.error(`Версия «${kind}» не собралась:`, error.message);
+        log.error(`Версия «${kind}» не собралась:`, error.message);
       }
     }
 
@@ -295,8 +297,11 @@ export class LogoAssetService {
 
   // Демо до оплаты: варианты строятся из превью с водяным знаком, чистых
   // файлов здесь не появляется
-  async previewVariants(previewUrl: string, colors: BrandColor[]): Promise<LogoAsset[]> {
-    const previewPath = resolveGeneratedLogoPath(previewUrl);
+  // Демо до оплаты строится только из превью с водяным знаком. Раньше сюда
+  // приходил URL от клиента, и по <uuid>-source-original.png сервер отдавал
+  // ч/б и негатив чистого логотипа — негатив разворачивается обратно в редакторе.
+  async previewVariants(logo: GeneratedLogo, colors: BrandColor[]): Promise<LogoAsset[]> {
+    const previewUrl = logo.logoUrl;
 
     const original: LogoAsset = {
       kind: 'primary',
@@ -306,6 +311,9 @@ export class LogoAssetService {
       onDark: false,
     };
 
+    if (!isPreviewLogoFile(previewUrl)) return [original];
+
+    const previewPath = resolveGeneratedLogoPath(previewUrl);
     if (!previewPath || !fs.existsSync(previewPath)) return [original];
 
     try {
@@ -315,8 +323,10 @@ export class LogoAssetService {
       const mono = await sharp(buffer).grayscale().png().toBuffer();
       const inverted = await sharp(buffer).flatten({ background: dark }).negate({ alpha: false }).png().toBuffer();
 
-      const name = (slot: string) =>
-        assetName({ brandbookId: 0, token: newToken(), slot, ext: 'png', paid: false });
+      // Привязка к id логотипа нужна чистке диска, а длинный хвост — чтобы
+      // чужие предпросмотры нельзя было перебрать по порядковому id
+      const token = crypto.randomBytes(16).toString('hex');
+      const name = (slot: string) => `logo-${logo.id}-${token}-${slot}.png`;
 
       const monoUrl = saveAsset(mono, name('demo-mono'));
       const invertedUrl = saveAsset(inverted, name('demo-inverted'));
@@ -327,7 +337,7 @@ export class LogoAssetService {
         { kind: 'mono-white', ...META['mono-white'], url: invertedUrl, files: { png2048: invertedUrl } },
       ];
     } catch (error: any) {
-      console.error('Демо-варианты логотипа не собрались:', error.message);
+      log.error('Демо-варианты логотипа не собрались:', error.message);
       return [original];
     }
   }

@@ -15,6 +15,7 @@ import { conceptService, LogoConcept } from './logoServices/conceptService';
 import { lockupService } from './logoServices/lockupService';
 import { rasterService } from './logoServices/rasterService';
 import { svgService } from './logoServices/svgService';
+import { log } from '../logger';
 
 export interface StoredLogo {
   // С водяным знаком — единственное, что видит неоплативший пользователь
@@ -129,9 +130,9 @@ export class LogoService {
           return { mark: mark.png, raw };
         }
 
-        console.error('Знак пришёл пустым, повторяем');
+        log.error('Знак пришёл пустым, повторяем');
       } catch (error: any) {
-        console.error(`Не удалось получить знак (попытка ${attempt + 1}):`, error.message);
+        log.error(`Не удалось получить знак (попытка ${attempt + 1}):`, error.message);
         if (attempt === 1) throw error;
       }
     }

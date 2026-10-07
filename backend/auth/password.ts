@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import argon2 from 'argon2';
 
 // argon2id с параметрами из OWASP Password Storage Cheat Sheet
@@ -21,4 +22,14 @@ export const verifyPassword = async (hash: string, password: string): Promise<bo
   } catch {
     return false;
   }
+};
+
+let dummyHash: Promise<string> | null = null;
+
+// Вход по несуществующему адресу проходит ту же проверку argon2 впустую:
+// без этого ответ приходил на ~50 мс быстрее и выдавал, есть ли аккаунт
+export const burnPasswordCheck = async (password: string): Promise<false> => {
+  dummyHash ??= hashPassword(crypto.randomBytes(16).toString('hex'));
+  await verifyPassword(await dummyHash, password);
+  return false;
 };

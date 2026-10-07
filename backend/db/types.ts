@@ -85,6 +85,9 @@ export interface GeneratedLogo {
   lockupFont: string | null;
   // Вектор голого знака без надписи, кэш для сборки брендбука
   markSvgUrl: string | null;
+  // Кэш предпросмотра брендбука: модель зовётся один раз на логотип
+  demoSlogan: string | null;
+  demoVariants: unknown[] | null;
   createdAt: Date;
   updatedAt: Date | null;
 }
@@ -147,6 +150,8 @@ export interface Payment {
   status: string;
   deliveryStatus: DeliveryStatus;
   deliveryError: string | null;
+  // Сколько раз заказ брали в выдачу. После потолка автоповторы прекращаются
+  deliveryAttempts: number;
   productData: Record<string, any>;
   description: string | null;
   createdAt: Date;

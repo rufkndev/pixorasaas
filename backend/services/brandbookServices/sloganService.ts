@@ -1,9 +1,10 @@
 import { getStyleProfile } from '../../utils/styleLabels';
-import { clamp, requestText } from '../../utils/llmJson';
+import { CLIENT_DATA_RULE, clamp, clientData, requestText } from '../../utils/llmJson';
 
 const SYSTEM =
   'Ты копирайтер, который пишет короткие слоганы для российских компаний. ' +
-  'Отвечаешь строго в запрошенном формате, без пояснений.';
+  'Отвечаешь строго в запрошенном формате, без пояснений. ' +
+  CLIENT_DATA_RULE;
 
 // Кавычки модель ставит охотно, причём и «ёлочки» тоже — прежняя чистка
 // снимала только " и ', и слоган уходил покупателю в кавычках
@@ -14,8 +15,11 @@ const buildPrompt = (name: string, keywords: string, style: string): string => {
   const profile = getStyleProfile(style);
 
   return [
-    `Придумай слоган для бренда «${name}».`,
-    `Ниша и характер бизнеса: ${keywords}.`,
+    'Придумай слоган для бренда.',
+    clientData([
+      ['Название', name],
+      ['Ниша и характер бизнеса', keywords],
+    ]),
     `Тон: ${profile.tone}.`,
     '',
     'Требования:',

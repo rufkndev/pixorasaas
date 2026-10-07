@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { FREE_GENERATIONS, QUOTA_WINDOW_DAYS, generationUsageRepo } from '../db/repositories';
 import { requireAuth } from '../auth/middleware';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get('/generation-limits', requireAuth, async (req: any, res: any) => {
       renewsAt: usage.renewsAt,
     });
   } catch (error: any) {
-    console.error('Не удалось прочитать лимиты генераций:', error.message);
+    log.error('Не удалось прочитать лимиты генераций:', error.message);
     return res.status(500).json({ error: 'Не удалось получить лимиты' });
   }
 });

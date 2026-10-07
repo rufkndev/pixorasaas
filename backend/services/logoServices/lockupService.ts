@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { log } from '../../logger';
 
 export type LockupLayout = 'markOnly' | 'stacked' | 'horizontal';
 
@@ -147,7 +148,7 @@ export class LockupService {
       };
     } catch (error: any) {
       // Шрифта нет в системе — вёрстка поедет, но логотип отдать всё равно нужно
-      console.error('Не удалось измерить надпись:', error.message);
+      log.error('Не удалось измерить надпись:', error.message);
       return { widthRatio: text.length * 0.6, heightRatio: 0.72, baselineRatio: 0.72 };
     }
   }

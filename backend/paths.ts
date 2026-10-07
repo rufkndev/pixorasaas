@@ -17,6 +17,14 @@ export const SOURCE_LOGO_SUFFIX = '-source';
 export const isSourceLogoFile = (urlOrPath: string): boolean =>
   path.basename(urlOrPath).includes(SOURCE_LOGO_SUFFIX);
 
+// Превью с водяным знаком — единственное, что можно обрабатывать до оплаты.
+// Превью и чистый файл различаются только суффиксом при одном uuid, поэтому
+// всё, что читает файл по ссылке до оплаты, обязано проверять именно это.
+export const isPreviewLogoFile = (urlOrPath: string): boolean => {
+  const name = path.basename(urlOrPath);
+  return name.endsWith('-preview.png') && !isSourceLogoFile(name);
+};
+
 // URL картинки → путь на диске. Обрезка до имени файла не даёт выйти
 // за пределы каталога через ../ в значении из базы.
 export const resolveGeneratedLogoPath = (url: string | null | undefined): string | null => {

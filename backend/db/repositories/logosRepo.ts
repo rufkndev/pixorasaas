@@ -24,6 +24,8 @@ const toLogo = (row: any): GeneratedLogo => ({
   originalSvgUrl: row.original_svg_url,
   lockupFont: row.lockup_font ?? null,
   markSvgUrl: row.mark_svg_url ?? null,
+  demoSlogan: row.demo_slogan ?? null,
+  demoVariants: row.demo_variants ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -122,6 +124,55 @@ export const logosRepo = {
       'UPDATE generated_logos SET mark_svg_url = $2, updated_at = now() WHERE id = $1',
       [id, markSvgUrl]
     );
+  },
+
+  async setDemo(id: number, input: { slogan: string; variants: unknown[] }): Promise<void> {
+    await query(
+      `UPDATE generated_logos
+       SET demo_slogan = $2, demo_variants = $3, updated_at = now()
+       WHERE id = $1`,
+      [id, input.slogan, JSON.stringify(input.variants)]
+    );
+  },
+
+  // Кэш предпросмотра по id логотипов — чистке нужно знать, какие файлы ещё в деле
+  async demoVariantsByIds(ids: number[]): Promise<Map<number, unknown[]>> {
+    const rows = await query(
+      'SELECT id, demo_variants FROM generated_logos WHERE id = ANY($1) AND demo_variants IS NOT NULL',
+      [ids]
+    );
+    return new Map(rows.map((row: any) => [Number(row.id), row.demo_variants]));
+  },
+
+  // Неоплаченные логотипы старше срока, на которые не ссылается ни один заказ:
+  // ожидающий оплаты платёж не должен лишиться своего логотипа
+  async listExpiredUnpaid(days: number, limit: number): Promise<GeneratedLogo[]> {
+    const rows = await query(
+      `SELECT l.* FROM generated_logos l
+        WHERE l.is_paid = false
+          AND l.created_at < now() - make_interval(days => $1)
+          AND NOT EXISTS (
+            SELECT 1 FROM payments p WHERE p.product_data->>'logoId' = l.id::text
+          )
+        ORDER BY l.created_at
+        LIMIT $2`,
+      [days, limit]
+    );
+    return rows.map(toLogo);
+  },
+
+  // Условия повторяются при удалении: между выборкой и удалением логотип могли
+  // оплатить. false — строка не удалена, и файлы трогать нельзя
+  async deleteUnpaid(id: number): Promise<boolean> {
+    const rows = await query(
+      `DELETE FROM generated_logos l
+        WHERE l.id = $1
+          AND l.is_paid = false
+          AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.product_data->>'logoId' = l.id::text)
+        RETURNING id`,
+      [id]
+    );
+    return rows.length > 0;
   },
 
   async findByIdForUser(id: number | string, userId: string): Promise<GeneratedLogo | null> {

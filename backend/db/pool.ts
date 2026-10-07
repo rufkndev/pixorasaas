@@ -2,6 +2,7 @@
 // репозитории работают только через query / queryOne / withTransaction.
 
 import { Pool, PoolClient, QueryResultRow } from 'pg';
+import { log } from '../logger';
 
 let pool: Pool | null = null;
 
@@ -23,7 +24,7 @@ export const getPool = (): Pool => {
 
     // Без обработчика разрыв соединения роняет процесс целиком
     pool.on('error', (err) => {
-      console.error('Ошибка простаивающего соединения с БД:', err.message);
+      log.error('Ошибка простаивающего соединения с БД:', err.message);
     });
   }
 

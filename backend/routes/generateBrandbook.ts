@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { demoBrandbookService } from '../services/brandbookServices';
 import { toProgress } from '../services/brandbookServices/progress';
-import { brandbooksRepo } from '../db/repositories';
+import { brandbooksRepo, logosRepo } from '../db/repositories';
 import { Brandbook } from '../db/types';
 import { requireAuth } from '../auth/middleware';
-import { BRAND_STYLES } from '../auth/schemas';
+import { demoBrandbookSchema, firstError, orderIdSchema } from '../auth/schemas';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -36,39 +37,28 @@ const toResponse = (brandbook: Brandbook) => ({
   completedAt: brandbook.completedAt,
 });
 
-// Демо-брендбук для предпросмотра. Ничего не сохраняет.
+// Демо-брендбук для предпросмотра. Клиент присылает только id своего логотипа:
+// URL от клиента позволял прочитать с диска чистый файл (см. previewVariants).
 router.post('/', requireAuth, async (req: any, res: any) => {
-  try {
-    const { name, keywords, logoUrl, brandStyle } = req.body;
+  const parsed = demoBrandbookSchema.safeParse(req.body);
 
-    // Проверка обязательных параметров
-    if (!name || !keywords || !logoUrl) {
-      return res.status(400).json({ error: 'Missing required fields: name, keywords, logoUrl' });
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstError(parsed.error) });
+  }
+
+  try {
+    const logo = await logosRepo.findByIdForUser(parsed.data.logoId, req.user.id);
+
+    if (!logo) {
+      return res.status(404).json({ error: 'Логотип не найден' });
     }
 
-    // Стиль влияет на тон слогана, поэтому он тоже идёт в демо
-    const style = BRAND_STYLES.includes(brandStyle) ? brandStyle : 'modern';
+    const brandbook = await demoBrandbookService.generateDemoBrandbook(logo);
 
-    const brandbook = await demoBrandbookService.generateDemoBrandbook(
-      name,
-      keywords,
-      logoUrl,
-      style
-    );
-
-    return res.status(200).json({
-      success: true,
-      brandbook,
-      name,
-      keywords,
-      logoUrl,
-    });
+    return res.status(200).json({ success: true, brandbook });
   } catch (error: any) {
-    console.error('Error generating demo brandbook:', error);
-    return res.status(500).json({
-      error: 'Ошибка при генерации брендбука',
-      message: error.message || 'Неизвестная ошибка',
-    });
+    log.error('Error generating demo brandbook:', error);
+    return res.status(500).json({ error: 'Ошибка при генерации брендбука' });
   }
 });
 
@@ -79,11 +69,15 @@ router.post('/', requireAuth, async (req: any, res: any) => {
 
 // Брендбук по номеру заказа
 router.get('/brandbook/:orderId', requireAuth, async (req: any, res: any) => {
+  // Невалидный номер иначе доходил до Postgres и превращался в 500
+  const orderId = orderIdSchema.safeParse(req.params.orderId);
+
+  if (!orderId.success) {
+    return res.status(404).json({ error: 'Brandbook not found' });
+  }
+
   try {
-    const brandbook = await brandbooksRepo.findByOrderIdForUser(
-      req.params.orderId,
-      req.user.id
-    );
+    const brandbook = await brandbooksRepo.findByOrderIdForUser(orderId.data, req.user.id);
 
     if (!brandbook) {
       return res.status(404).json({ error: 'Brandbook not found' });
@@ -94,11 +88,8 @@ router.get('/brandbook/:orderId', requireAuth, async (req: any, res: any) => {
       brandbook: toResponse(brandbook),
     });
   } catch (error: any) {
-    console.error('Error fetching brandbook:', error.message);
-    return res.status(500).json({
-      error: 'Ошибка при получении брендбука',
-      message: error.message || 'Неизвестная ошибка',
-    });
+    log.error('Error fetching brandbook:', error.message);
+    return res.status(500).json({ error: 'Ошибка при получении брендбука' });
   }
 });
 
@@ -108,7 +99,7 @@ router.get('/user-brandbooks/:userId', requireAuth, async (req: any, res: any) =
     const brandbooks = await brandbooksRepo.listByUser(req.user.id);
     return res.status(200).json({ brandbooks: brandbooks.map(toResponse) });
   } catch (error: any) {
-    console.error('Error fetching user brandbooks:', error.message);
+    log.error('Error fetching user brandbooks:', error.message);
     return res.status(500).json({ error: 'Failed to fetch brandbooks' });
   }
 });

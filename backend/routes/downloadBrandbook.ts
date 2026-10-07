@@ -2,7 +2,9 @@ import { Router } from 'express';
 
 import { brandbooksRepo } from '../db/repositories';
 import { requireAuth } from '../auth/middleware';
+import { orderIdSchema } from '../auth/schemas';
 import { streamBrandbookArchive } from '../services/brandbookServices/archive';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -10,8 +12,14 @@ const router = Router();
 // иконки и макеты по отдельности, причём макеты — как HTML в <foreignObject>,
 // который не открывается ни в одном редакторе.
 router.get('/download-brandbook/:orderId', requireAuth, async (req, res) => {
+  const orderId = orderIdSchema.safeParse(req.params.orderId);
+
+  if (!orderId.success) {
+    return res.status(404).json({ error: 'Брендбук не найден' });
+  }
+
   try {
-    const brandbook = await brandbooksRepo.findByOrderIdForUser(req.params.orderId, req.user!.id);
+    const brandbook = await brandbooksRepo.findByOrderIdForUser(orderId.data, req.user!.id);
 
     if (!brandbook) {
       return res.status(404).json({ error: 'Брендбук не найден' });
@@ -35,7 +43,7 @@ router.get('/download-brandbook/:orderId', requireAuth, async (req, res) => {
 
     return streamBrandbookArchive(res, brandbook);
   } catch (error: any) {
-    console.error('Не удалось отдать архив брендбука:', error.message);
+    log.error('Не удалось отдать архив брендбука:', error.message);
     return res.status(500).json({ error: 'Не удалось собрать архив' });
   }
 });

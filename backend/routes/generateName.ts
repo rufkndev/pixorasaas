@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { nameService } from '../services/nameService';
-import { generationUsageRepo, namesRepo } from '../db/repositories';
+import { namesRepo } from '../db/repositories';
+import { isRefusal, reserveFreeGeneration } from '../services/freeGenerationGuard';
 import { requireAuth } from '../auth/middleware';
 import { generateNamesSchema, firstError } from '../auth/schemas';
+import { log } from '../logger';
 
 const router = Router();
 
@@ -18,17 +20,14 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
     // Пользователь из сессии, а не из тела запроса
     const userId = req.user.id;
 
-    // Списываем попытку до генерации: проверка и списание в одном запросе,
-    // иначе параллельные запросы пролезли бы сверх лимита
-    const remaining = await generationUsageRepo.consume(userId, 'names');
+    // Попытка списывается до генерации, вместе с лимитом на адрес и бюджетом
+    const pass = await reserveFreeGeneration(req, 'names');
 
-    if (remaining === null) {
-      return res.status(403).json({
-        error: 'Бесплатные генерации названий закончились. Они обновятся автоматически, а оплата логотипа или брендбука возвращает их сразу.',
-        code: 'GENERATION_LIMIT',
-        remaining: 0,
-      });
+    if (isRefusal(pass)) {
+      return res.status(pass.status).json(pass.body);
     }
+
+    const { remaining } = pass;
 
     try {
       // История нужна, чтобы повторный заход по той же нише не выдал то же самое.
@@ -37,7 +36,7 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
       try {
         history = await namesRepo.recentNamesForIndustry(userId, industry);
       } catch (historyError: any) {
-        console.error('Не удалось прочитать историю названий:', historyError.message);
+        log.error('Не удалось прочитать историю названий:', historyError.message);
       }
 
       const generatedNames = await nameService.generateNames({
@@ -51,10 +50,12 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
 
       // Проверяем, что хотя бы одно название было сгенерировано
       if (generatedNames.length === 0) {
-        console.error('No names were generated');
-        await generationUsageRepo.release(userId, 'names');
-        return res.status(500).json({ error: 'No names were generated' });
+        log.error('No names were generated');
+        await pass.release();
+        return res.status(500).json({ error: 'Не удалось придумать названия. Попробуйте ещё раз.' });
       }
+
+      await pass.commit();
 
       // Сбой записи не должен лишать уже сгенерированных названий
       try {
@@ -69,7 +70,7 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
 
         return res.status(200).json({ names: generatedNames, remaining });
       } catch (dbError: any) {
-        console.error('Не удалось сохранить названия:', dbError.message);
+        log.error('Не удалось сохранить названия:', dbError.message);
         return res.status(200).json({
           names: generatedNames,
           remaining,
@@ -78,21 +79,15 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
       }
     } catch (apiError: any) {
       // Обработка ошибок при запросе к AI сервису
-      console.error('AI service request error:', apiError.message);
+      log.error('AI service request error:', apiError.message);
       // Попытка не должна сгорать из-за сбоя на нашей стороне
-      await generationUsageRepo.release(userId, 'names');
-      return res.status(500).json({
-        error: 'Failed to generate names',
-        message: apiError.message,
-      });
+      await pass.release();
+      return res.status(500).json({ error: 'Не удалось придумать названия. Попробуйте ещё раз.' });
     }
   } catch (error: any) {
     // Общий обработчик ошибок для маршрута
-    console.error('Error generating names:', error);
-    return res.status(500).json({
-      error: 'Something went wrong',
-      message: error.message,
-    });
+    log.error('Error generating names:', error);
+    return res.status(500).json({ error: 'Не удалось придумать названия. Попробуйте ещё раз.' });
   }
 });
 
@@ -102,7 +97,7 @@ router.get('/user-names/:userId', requireAuth, async (req: any, res: any) => {
     const history = await namesRepo.listByUser(req.user.id);
     return res.status(200).json({ history });
   } catch (error: any) {
-    console.error('Error fetching generated names:', error.message);
+    log.error('Error fetching generated names:', error.message);
     return res.status(500).json({ error: 'Failed to fetch generated names' });
   }
 });

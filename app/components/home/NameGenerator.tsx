@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoginButton from '../../components/auth/LoginButton';
 import { apiFetch } from '../../lib/authClient';
+import { describeGenerationError } from '../../lib/generationErrors';
 import { useRouter } from 'next/navigation';
 import GenerationQuota, { QuotaLimits } from '../common/GenerationQuota';
 
@@ -81,10 +82,6 @@ export default function NameGenerator() {
     return data.names;
   };
 
-  // Сообщение о лимите уже готово к показу, приставка про ошибку тут лишняя
-  const describeFailure = (err: any, prefix: string): string =>
-    err?.code === 'GENERATION_LIMIT' ? err.message : `${prefix}: ${err.message}`;
-
   const generateNames = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -106,7 +103,7 @@ export default function NameGenerator() {
       setSuggestions(names);
       setShownNames(names.map(item => item.name));
     } catch (err: any) {
-      setError(describeFailure(err, 'Произошла ошибка при генерации названий'));
+      setError(describeGenerationError(err, 'Произошла ошибка при генерации названий'));
     } finally {
       setIsGenerating(false);
     }
@@ -126,7 +123,7 @@ export default function NameGenerator() {
       setSuggestions([...suggestions, ...names]);
       setShownNames([...shownNames, ...names.map(item => item.name)]);
     } catch (err: any) {
-      setError(describeFailure(err, 'Не удалось получить новые варианты'));
+      setError(describeGenerationError(err, 'Не удалось получить новые варианты'));
     } finally {
       setIsLoadingMore(false);
     }
