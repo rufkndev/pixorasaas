@@ -10,6 +10,7 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { apiFetch } from '../../lib/authClient';
 import { OfferConsentCheckbox } from '../../components/legal/ConsentCheckbox';
 import { PRICES } from '../../lib/legal';
+import { trackEvent } from '../../lib/telemetry';
 import React from 'react';
 
 function PaymentContent() {
@@ -60,6 +61,11 @@ function PaymentContent() {
       router.push('/');
     }
   }, [mounted, product, name, keywords, logoUrl, logoId, industry, brandStyle, user, router]);
+
+  // Шаг воронки «открыл оплату»: отказ на нашей форме и отказ в ЮKassa — разные проблемы
+  useEffect(() => {
+    if (product && logoId) trackEvent('checkout_open', { product, logoId });
+  }, [product, logoId]);
 
   const productInfo = {
     logo: {

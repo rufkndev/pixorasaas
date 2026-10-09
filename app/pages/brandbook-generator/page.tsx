@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense, ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { trackEvent } from '../../lib/telemetry';
 import Link from 'next/link';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -77,6 +78,11 @@ function BrandbookPreviewContent() {
   useEffect(() => {
     if (!name || !logoId) router.push('/');
   }, [name, logoId, router]);
+
+  // Шаг воронки между логотипом и оплатой брендбука
+  useEffect(() => {
+    if (logoId) trackEvent('brandbook_preview_view', { logoId });
+  }, [logoId]);
 
   const paymentHref = {
     pathname: '/pages/payment',

@@ -26,12 +26,43 @@ const PHONE = /(?:\+7|\b[78])[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*(\d{2})\b/
 export const maskPersonalData = (text: string): string =>
   text.replace(EMAIL, '$1***@$2').replace(PHONE, '+7 *** ***-**-$1');
 
+export type LogLevel = 'info' | 'warn' | 'error';
+
+export interface LogEntry {
+  at: Date;
+  level: LogLevel;
+  message: string;
+  requestId: string | null;
+}
+
+// Подписчики получают каждую строку. Через них копия логов уходит в базу:
+// прямой импорт пула отсюда дал бы цикл — пул сам пишет в лог
+const listeners: Array<(entry: LogEntry) => void> = [];
+
+export const onLog = (listener: (entry: LogEntry) => void): void => {
+  listeners.push(listener);
+};
+
+export const currentRequestId = (): string | null => requestContext.getStore()?.requestId ?? null;
+
 // Тот же вызов, что у console: log.error('Не удалось:', error.message). Так замена
 // console.* прошла механически, без переписывания каждого сообщения
 const write =
-  (level: 'info' | 'warn' | 'error') =>
-  (...args: unknown[]): void =>
-    base[level](maskPersonalData(format(...args)));
+  (level: LogLevel) =>
+  (...args: unknown[]): void => {
+    const message = maskPersonalData(format(...args));
+    base[level](message);
+
+    if (listeners.length === 0) return;
+    const entry = { at: new Date(), level, message, requestId: currentRequestId() };
+    for (const listener of listeners) {
+      try {
+        listener(entry);
+      } catch {
+        // Сбой подписчика не должен ронять запись лога
+      }
+    }
+  };
 
 export const log = {
   info: write('info'),

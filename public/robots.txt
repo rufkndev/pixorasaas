@@ -20,6 +20,7 @@ Allow: /pages/privacy
 Allow: /pages/cookies
 
 # Запрещаем индексацию технических и служебных страниц
+Disallow: /admin
 Disallow: /pages/dashboard/
 Disallow: /pages/payment/
 Disallow: /pages/brandbook/

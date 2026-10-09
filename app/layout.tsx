@@ -7,6 +7,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { AuthProvider } from './context/AuthContext';
 import CookieBanner from './components/legal/CookieBanner';
+import Telemetry from './components/common/Telemetry';
 
 export const metadata: Metadata = {
   title: {
@@ -139,6 +140,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <CookieBanner />
+          <Telemetry />
         </AuthProvider>
       </body>
     </html>

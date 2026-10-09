@@ -24,6 +24,14 @@ export const ESTIMATED_COST_RUB = {
   slogan: 1,
 } as const;
 
+// Смета одного вызова по модели — для учёта каждого вызова GenAPI в аналитике.
+// Те же замеры: три вызова языковой модели на названия дают те же 3 ₽
+export const MODEL_COST_RUB: Record<string, number> = {
+  'gpt-5-6-luna': 1,
+  'dalle-3': 7,
+  'image-2-svg': 1,
+};
+
 export type SpendKind = keyof typeof ESTIMATED_COST_RUB;
 
 // Какие траты считаются бесплатными и упираются в бюджет

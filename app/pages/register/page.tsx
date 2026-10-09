@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { useAuth } from '../../context/AuthContext';
 import { ApiError, authApi } from '../../lib/authClient';
+import { firstTouch } from '../../lib/telemetry';
 import AuthShell, {
   FormError,
   inputClass,
@@ -55,6 +56,7 @@ export default function RegisterPage() {
         password,
         fullName: fullName.trim() || undefined,
         consents: { pdn: true, marketing },
+        attribution: firstTouch(),
       });
       setSubmitted(true);
     } catch (err) {

@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { z } from 'zod';
 
 import { apiUtils } from '../../utils/apiUtils';
@@ -34,8 +33,6 @@ const conceptSchema = z.object({
 const VAGUE = ['abstract', 'shape', 'form', 'symbol', 'swoosh', 'wave', 'element', 'design', 'mark'];
 
 export class ConceptService {
-  private baseUrl = apiUtils.getBaseUrl();
-
   async createConcept(
     name: string,
     keywords: string,
@@ -51,13 +48,10 @@ export class ConceptService {
     const brief = this.buildBrief(name, keywords, industry, pattern, vector, style, usedSubjects);
 
     try {
-      const initial = await axios.post(
-        `${this.baseUrl}/networks/${MODEL}`,
-        { messages: [{ role: 'user', content: brief }], max_completion_tokens: 900 },
-        { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiUtils.getApiKey()}` } }
-      );
-
-      const completed = await apiUtils.waitForResult(initial.data.request_id);
+      const completed = await apiUtils.run(MODEL, 'концепция логотипа', {
+        messages: [{ role: 'user', content: brief }],
+        max_completion_tokens: 900,
+      });
       const parsed = this.parse(apiUtils.extractTextFromResponse(completed));
 
       if (parsed) {

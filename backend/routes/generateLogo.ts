@@ -6,11 +6,12 @@ import { BusyError, Semaphore } from '../utils/semaphore';
 import { LOGO_CONCURRENCY, LOGO_QUEUE } from '../limits';
 import { requireAuth } from '../auth/middleware';
 import { generateLogoSchema, firstError } from '../auth/schemas';
+import { track } from '../services/eventsService';
 import { log } from '../logger';
 
 const router = Router();
 
-const logoSlots = new Semaphore(LOGO_CONCURRENCY, LOGO_QUEUE);
+export const logoSlots = new Semaphore(LOGO_CONCURRENCY, LOGO_QUEUE);
 
 // Маршрут для генерации логотипа
 router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
@@ -66,6 +67,7 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
       await pass.release();
 
       if (generationError instanceof BusyError) {
+        track('generation_refused', userId, { kind: 'logos', code: 'BUSY' });
         return res.status(503).json({
           error: 'Сейчас генерируется слишком много логотипов. Попробуйте через минуту — попытка не списана.',
           code: 'BUSY',
@@ -75,6 +77,9 @@ router.post('/generate-logo', requireAuth, async (req: any, res: any) => {
     }
 
     await pass.commit();
+
+    // Событие переживёт чистку неоплаченных логотипов через 90 дней, а воронка нет
+    track('logo_generated', userId, { style, pattern: stored.pattern, industry: logoIndustry });
 
     // Логотип уже сгенерирован — сбой записи не повод возвращать ошибку
     try {

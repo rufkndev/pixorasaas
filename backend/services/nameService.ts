@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { z } from 'zod';
 import { NameSuggestion } from '../db/types';
 import { apiUtils } from '../utils/apiUtils';
@@ -305,24 +304,17 @@ export class NameService {
     slots: NameSlot[],
     exclude: string[]
   ): Promise<SlottedSuggestion[]> {
-    const initialResponse = await axios.post(`${apiUtils.getBaseUrl()}/networks/${MODEL}`, {
+    // Опрос и разбор — общие для всех сервисов. Здесь были свои копии, и они
+    // отличались не только умолчаниями: собственный throw об отказе задачи
+    // попадал в собственный catch, и упавшая задача опрашивалась до конца лимита
+    const completedResponse = await apiUtils.run(MODEL, 'названия', {
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: this.buildPrompt(input, slots, exclude.slice(0, MAX_EXCLUDE)) }
       ],
       // Запас нужен под рассуждения модели, иначе на текст ответа токенов не остаётся
       max_completion_tokens: 2000
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiUtils.getApiKey()}`
-      }
     });
-
-    // Опрос и разбор — общие для всех сервисов. Здесь были свои копии, и они
-    // отличались не только умолчаниями: собственный throw об отказе задачи
-    // попадал в собственный catch, и упавшая задача опрашивалась до конца лимита
-    const completedResponse = await apiUtils.waitForResult(initialResponse.data.request_id);
     return this.parseSuggestions(apiUtils.extractTextFromResponse(completedResponse));
   }
 

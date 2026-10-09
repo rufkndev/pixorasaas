@@ -29,6 +29,8 @@ import { mailService } from '../services/mailService';
 import { verifyEmailTemplate } from '../emails/verifyEmail';
 import { resetPasswordTemplate } from '../emails/resetPassword';
 import { isDisposableEmail } from '../utils/disposableEmail';
+import { ipLimitKey } from '../utils/ipRange';
+import { blockedIpsRepo } from '../db/repositories/adminRepo';
 import { log } from '../logger';
 
 const router = Router();
@@ -98,8 +100,15 @@ router.post('/register', emailLimiter, async (req, res) => {
     return res.status(400).json({ error: firstError(parsed.error) });
   }
 
-  const { email, password, fullName, consents } = parsed.data;
+  const { email, password, fullName, consents, attribution } = parsed.data;
   const meta = clientMeta(req);
+
+  if (await blockedIpsRepo.isBlocked(ipLimitKey(req.ip)).catch(() => false)) {
+    return res.status(403).json({
+      error: 'Регистрация с вашей сети недоступна. Напишите нам через форму обратной связи.',
+      code: 'BLOCKED',
+    });
+  }
 
   // Одноразовая почта — главный способ завести десятки аккаунтов под бесплатные генерации
   if (isDisposableEmail(email)) {
@@ -130,6 +139,7 @@ router.post('/register', emailLimiter, async (req, res) => {
       email,
       passwordHash: await hashPassword(password),
       fullName: fullName ?? null,
+      signupSource: attribution ?? null,
     });
 
     // Версия документа берётся с сервера, не от клиента
@@ -252,6 +262,13 @@ router.post('/login', credentialsLimiter, async (req, res) => {
     }
 
     // Только после проверки пароля, иначе роут выдаёт, занят ли адрес
+    if (user.blockedAt) {
+      return res.status(403).json({
+        error: 'Аккаунт заблокирован. Если это ошибка, напишите нам через форму обратной связи.',
+        code: 'ACCOUNT_BLOCKED',
+      });
+    }
+
     if (!user.emailVerifiedAt) {
       return res.status(403).json({
         error: 'Подтвердите адрес электронной почты, чтобы войти',

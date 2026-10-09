@@ -191,6 +191,34 @@ class YookassaService {
     });
   }
 
+  // Для проверки доступности из мониторинга: ключи верны и API отвечает
+  async getShop(): Promise<{ account_id: string; test: boolean; status?: string }> {
+    return this.request('/me', { method: 'GET' });
+  }
+
+  // Возврат по 54-ФЗ требует чек: магазин отправляет чеки через ЮKassa, и без
+  // receipt запрос отклоняется
+  async createRefund(params: {
+    paymentId: string;
+    amount: number;
+    currency: string;
+    description: string;
+    idempotenceKey: string;
+    receiptEmail: string;
+    receiptItems: ReceiptItem[];
+  }): Promise<{ id: string; status: string }> {
+    return this.request('/refunds', {
+      method: 'POST',
+      idempotenceKey: params.idempotenceKey,
+      body: {
+        payment_id: params.paymentId,
+        amount: { value: params.amount.toFixed(2), currency: params.currency },
+        description: trimDescription(params.description),
+        receipt: { customer: { email: params.receiptEmail }, items: params.receiptItems },
+      },
+    });
+  }
+
   isNotificationIp(ip: string | undefined): boolean {
     if (!ip) return false;
     return ipInAnyCidr(ip, NOTIFICATION_IPS);

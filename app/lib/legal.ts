@@ -3,10 +3,10 @@
 // При правке текста документа поднимите дату здесь и в backend/legal.ts.
 
 export const LEGAL_VERSIONS = {
-  pdn: '2026-10-05',
+  pdn: '2026-10-08',
   offer: '2026-08-27',
   marketing: '2026-08-27',
-  cookies: '2026-08-27',
+  cookies: '2026-10-08',
 } as const;
 
 export const LEGAL_LINKS = {

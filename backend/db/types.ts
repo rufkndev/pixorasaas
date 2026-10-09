@@ -12,6 +12,7 @@ export interface User {
 export interface UserWithSecret extends User {
   passwordHash: string;
   deletedAt: Date | null;
+  blockedAt: Date | null;
 }
 
 export type AuthTokenKind = 'email_verify' | 'password_reset';

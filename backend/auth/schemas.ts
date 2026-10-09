@@ -77,6 +77,17 @@ export const registerSchema = z.object({
     // мешать регистрации
     marketing: z.boolean().optional().default(false),
   }),
+  // Первое касание для аналитики: откуда человек пришёл. Кривое значение
+  // не должно мешать регистрации, поэтому catch, а не ошибка
+  attribution: z
+    .object({
+      source: z.string().max(60).regex(/^[\w.\- ]*$/),
+      medium: z.string().max(60).regex(/^[\w.\- ]*$/).optional(),
+      campaign: z.string().max(100).regex(/^[\w.\- ]*$/).optional(),
+      landing: z.string().max(100).regex(/^\/[\w\-/]*$/).optional(),
+    })
+    .optional()
+    .catch(undefined),
 });
 
 export const loginSchema = z.object({

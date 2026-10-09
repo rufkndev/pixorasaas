@@ -33,6 +33,8 @@ const schema = z.object({
   LOGO_CONCURRENCY: nonNegativeInt,
   LOGO_QUEUE: nonNegativeInt,
   UNPAID_LOGO_RETENTION_DAYS: nonNegativeInt,
+  // Без адресов админка просто закрыта для всех — это не повод не стартовать
+  ADMIN_EMAILS: z.string().optional(),
 });
 
 // В проде неполное окружение — отказ стартовать, в деве — предупреждение:

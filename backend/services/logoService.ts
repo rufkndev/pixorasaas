@@ -81,8 +81,6 @@ export const rawNameFor = (sourceFile: string): string =>
   path.basename(sourceFile).replace(/\.png$/i, '-original.png');
 
 export class LogoService {
-  private baseUrl = apiUtils.getBaseUrl();
-
   async generateLogo(
     businessName: string,
     keywords: string,
@@ -141,19 +139,13 @@ export class LogoService {
   }
 
   private async requestImage(concept: LogoConcept, retry: boolean): Promise<Buffer> {
-    const initial = await axios.post(
-      `${this.baseUrl}/networks/${MODEL}`,
-      {
-        prompt: KEEP_PROMPT + this.buildPrompt(concept, retry),
-        size: SIZE,
-        quality: QUALITY,
-        style: STYLE,
-        n: 1,
-      },
-      { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiUtils.getApiKey()}` } }
-    );
-
-    const result = await apiUtils.waitForResult(initial.data.request_id);
+    const result = await apiUtils.run(MODEL, 'знак логотипа', {
+      prompt: KEEP_PROMPT + this.buildPrompt(concept, retry),
+      size: SIZE,
+      quality: QUALITY,
+      style: STYLE,
+      n: 1,
+    });
     const url = this.extractUrl(result);
 
     if (!url) {
@@ -347,11 +339,7 @@ export class LogoService {
       form.append(key, String(value));
     }
 
-    const initial = await axios.post(`${this.baseUrl}/networks/${VECTOR_MODEL}`, form, {
-      headers: { Authorization: `Bearer ${apiUtils.getApiKey()}` },
-    });
-
-    const result = await apiUtils.waitForResult(initial.data.request_id);
+    const result = await apiUtils.run(VECTOR_MODEL, 'векторизация', form);
     const url = this.extractUrl(result);
 
     if (!url) {

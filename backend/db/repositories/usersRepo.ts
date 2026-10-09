@@ -16,6 +16,7 @@ const toUserWithSecret = (row: any): UserWithSecret => ({
   ...toUser(row),
   passwordHash: row.password_hash,
   deletedAt: row.deleted_at,
+  blockedAt: row.blocked_at ?? null,
 });
 
 export const usersRepo = {
@@ -48,12 +49,18 @@ export const usersRepo = {
     email: string;
     passwordHash: string;
     fullName?: string | null;
+    signupSource?: Record<string, string | undefined> | null;
   }): Promise<User> {
     const row = await queryOne(
-      `INSERT INTO users (email, password_hash, full_name)
-       VALUES ($1, $2, $3)
+      `INSERT INTO users (email, password_hash, full_name, signup_source)
+       VALUES ($1, $2, $3, $4::jsonb)
        RETURNING ${PUBLIC_COLUMNS}`,
-      [input.email, input.passwordHash, input.fullName ?? null]
+      [
+        input.email,
+        input.passwordHash,
+        input.fullName ?? null,
+        input.signupSource ? JSON.stringify(input.signupSource) : null,
+      ]
     );
     return toUser(row);
   },
@@ -85,6 +92,8 @@ export const usersRepo = {
       await client.query('DELETE FROM user_generation_usage WHERE user_id = $1', [id]);
       await client.query('DELETE FROM sessions WHERE user_id = $1', [id]);
       await client.query('DELETE FROM auth_tokens WHERE user_id = $1', [id]);
+      // Статистика использования хранится до удаления аккаунта — так записано в политике
+      await client.query('DELETE FROM app_events WHERE user_id = $1', [id]);
 
       // Сумма, дата и статус платежа остаются, контактные данные — нет
       await client.query(

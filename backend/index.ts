@@ -21,10 +21,18 @@ import sendContactRoutes from './routes/sendContact';
 import downloadBrandbookRoutes from './routes/downloadBrandbook';
 import downloadLogoRoutes from './routes/downloadLogo';
 import yookassaPaymentRoutes from './routes/yookassaPayments';
+import telemetryRoutes from './routes/telemetry';
+import adminRoutes from './routes/admin';
 import { closePool, getPool } from './db/pool';
 import { startScheduler, stopScheduler } from './jobs/scheduler';
 import { stopAcceptingDeliveries, waitForActiveDeliveries } from './services/orderService';
 import { log, requestLogger } from './logger';
+import { startLogSink, stopLogSink } from './monitoring/logSink';
+import { httpMetrics, startHttpMetrics, stopHttpMetrics } from './monitoring/httpMetrics';
+
+// Копия логов в базу — для просмотра из админки. До первого запроса
+startLogSink();
+startHttpMetrics();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +45,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 app.use(requestLogger);
+app.use(httpMetrics);
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
@@ -81,6 +90,8 @@ app.use('/api', sendContactRoutes);
 app.use('/api', downloadBrandbookRoutes);
 app.use('/api', downloadLogoRoutes);
 app.use('/api', yookassaPaymentRoutes);
+app.use('/api', telemetryRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   log.error('Error:', err.message);
@@ -109,6 +120,8 @@ const shutdown = async (signal: string): Promise<void> => {
   const finished = await waitForActiveDeliveries(SHUTDOWN_WAIT_MS);
   if (!finished) log.warn('Не все выдачи закончились — их подберёт досборщик после старта');
 
+  await stopHttpMetrics().catch(() => {});
+  await stopLogSink().catch(() => {});
   await closePool().catch(() => {});
   process.exit(0);
 };

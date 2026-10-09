@@ -10,6 +10,7 @@ import { logoIdSchema } from '../auth/schemas';
 import { resolveGeneratedLogoPath } from '../paths';
 import { rawNameFor } from '../services/logoService';
 import { fileSlug } from '../utils/slug';
+import { track } from '../services/eventsService';
 import { log } from '../logger';
 
 const router = Router();
@@ -51,6 +52,7 @@ router.get('/download-logo/:logoId', requireAuth, async (req: any, res) => {
     }
 
     const fileName = fileNameFor(logo.name);
+    track('download_logo', req.user.id, { format, logoId: logo.id });
 
     // Скачивается всегда чистый файл; logo_url — это превью с водяным знаком.
     // Старые записи до разделения хранят оригинал прямо в logo_url

@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { z } from 'zod';
 
 import { apiUtils } from './apiUtils';
@@ -27,18 +26,10 @@ const post = async (req: LlmRequest): Promise<string | null> => {
       ]
     : [{ role: 'user', content: req.prompt }];
 
-  const initial = await axios.post(
-    `${apiUtils.getBaseUrl()}/networks/${req.model || BRAND_MODEL}`,
-    { messages, max_completion_tokens: req.maxTokens || 1200 },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiUtils.getApiKey()}`,
-      },
-    }
-  );
-
-  const completed = await apiUtils.waitForResult(initial.data.request_id);
+  const completed = await apiUtils.run(req.model || BRAND_MODEL, req.label, {
+    messages,
+    max_completion_tokens: req.maxTokens || 1200,
+  });
   const text = apiUtils.extractTextFromResponse(completed);
 
   return text ? text.trim() : null;

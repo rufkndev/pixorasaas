@@ -29,9 +29,12 @@ export default function GenerationQuota({
   const renewsAt = limits?.renewsAt ? formatDate(limits.renewsAt) : null;
 
   if (remaining > 0) {
+    const limit = limits?.limit ?? 5;
+    // Админ может подарить генерации сверх квоты, и «7 из 5» читалось бы как сбой
     return (
       <p className="mb-4 text-sm text-gray-600">
-        Бесплатных генераций {word} осталось: <strong>{remaining}</strong> из {limits?.limit ?? 5}.{' '}
+        Бесплатных генераций {word} осталось: <strong>{remaining}</strong>
+        {remaining <= limit ? ` из ${limit}` : ''}.{' '}
         {renewsAt
           ? `Счётчик обнулится ${renewsAt}.`
           : `Счётчик обнуляется через ${windowDays} дней после первой генерации.`}

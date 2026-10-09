@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 
-import { consentsRepo } from '../db/repositories';
+import { consentsRepo, contactMessagesRepo } from '../db/repositories';
 import { LEGAL_VERSIONS } from '../legal';
 import { contactSchema, firstError } from '../auth/schemas';
 import { clientMeta } from '../auth/service';
@@ -50,6 +50,15 @@ router.post('/send-contact', contactLimiter, optionalAuth, async (req: any, res:
       source: 'contact_form',
       ip: meta.ip,
       userAgent: meta.userAgent,
+    });
+
+    // Обращение сохраняется до письма: при сбое почты оно не потеряется и видно в админке
+    await contactMessagesRepo.create({
+      userId: req.user?.id ?? null,
+      name,
+      email,
+      message,
+      ip: meta.ip,
     });
 
     // Без экранирования чужая разметка попала бы в наше письмо. Подтверждения

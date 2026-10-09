@@ -13,6 +13,11 @@ export class Semaphore {
 
   constructor(private readonly limit: number, private readonly maxQueue: number) {}
 
+  // Для мониторинга: сколько генераций идёт и сколько ждёт
+  stats(): { active: number; queued: number; limit: number; maxQueue: number } {
+    return { active: this.active, queued: this.waiting.length, limit: this.limit, maxQueue: this.maxQueue };
+  }
+
   async run<T>(task: () => Promise<T>): Promise<T> {
     await this.acquire();
     try {

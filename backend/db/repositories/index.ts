@@ -11,6 +11,7 @@ export { generationUsageRepo, FREE_GENERATIONS, QUOTA_WINDOW_DAYS } from './gene
 export type { GenerationKind, GenerationUsage } from './generationUsageRepo';
 
 export { ipUsageRepo, spendRepo } from './abuseRepo';
+export { adminActionsRepo, blockedIpsRepo, contactMessagesRepo } from './adminRepo';
 export type { IpGenerationKind } from './abuseRepo';
 
 export * from '../types';

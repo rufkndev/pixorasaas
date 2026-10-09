@@ -8,6 +8,7 @@ import { apiFetch } from '../../lib/authClient';
 import { describeGenerationError } from '../../lib/generationErrors';
 import { useRouter } from 'next/navigation';
 import GenerationQuota, { QuotaLimits } from '../common/GenerationQuota';
+import { trackEvent } from '../../lib/telemetry';
 
 // Столько же принимает generateNamesSchema на бэкенде
 const FIELD_MAX_LENGTH = 100;
@@ -110,6 +111,7 @@ export default function NameGenerator() {
   };
 
   const loadMoreNames = async () => {
+    trackEvent('names_more_variants', { shown: shownNames.length });
     setError('');
     setIsLoadingMore(true);
 

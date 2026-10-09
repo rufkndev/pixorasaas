@@ -6,8 +6,8 @@ import { LEGAL_LINKS, LEGAL_VERSIONS } from '../../lib/legal';
 
 const STORAGE_KEY = 'pixora-cookie-consent';
 
-// Баннер информационный: аналитики и трекеров нет, единственные cookie —
-// сессионные, а они не требуют предварительного согласия.
+// Баннер информационный: сторонней аналитики и трекеров нет, единственные cookie —
+// сессионные. Своя статистика посещений идёт счётчиками без идентификатора.
 // Появится Метрика — баннер придётся переделать в блокирующий.
 export default function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
@@ -55,7 +55,7 @@ export default function CookieBanner() {
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-700">
           Мы используем только те cookie, без которых сайт не работает: они хранят вашу сессию
-          входа. Аналитики и рекламных трекеров у нас нет. Подробнее — в{' '}
+          входа. Сторонней аналитики и рекламных трекеров у нас нет. Подробнее — в{' '}
           <Link href={LEGAL_LINKS.cookies} className="underline hover:no-underline">
             политике использования cookie
           </Link>

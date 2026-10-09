@@ -10,6 +10,7 @@ import { useRequireAuth } from '../../hooks/useRequireAuth';
 import { apiFetch } from '../../lib/authClient';
 import { describeGenerationError } from '../../lib/generationErrors';
 import { PRICES } from '../../lib/legal';
+import { trackEvent } from '../../lib/telemetry';
 import GenerationQuota, { QuotaLimits } from '../../components/common/GenerationQuota';
 import React from 'react';
 
@@ -81,7 +82,8 @@ function LogoGeneratorContent() {
 
   // Функция для генерации логотипа
   const generateLogo = async () => {
-    
+    if (shownSubjects.length > 0) trackEvent('logo_more_variants', { shown: shownSubjects.length });
+
     setIsGenerating(true);
     setError('');
     

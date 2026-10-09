@@ -4,6 +4,7 @@ import { namesRepo } from '../db/repositories';
 import { isRefusal, reserveFreeGeneration } from '../services/freeGenerationGuard';
 import { requireAuth } from '../auth/middleware';
 import { generateNamesSchema, firstError } from '../auth/schemas';
+import { track } from '../services/eventsService';
 import { log } from '../logger';
 
 const router = Router();
@@ -56,6 +57,7 @@ router.post('/generate-names', requireAuth, async (req: any, res: any) => {
       }
 
       await pass.commit();
+      track('names_generated', userId, { style, industry, language });
 
       // Сбой записи не должен лишать уже сгенерированных названий
       try {

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { log } from '../logger';
+import { recordGenapiCall } from '../monitoring/genapiCalls';
 
 export interface GeneratedResponse {
   request_id?: string;
@@ -20,6 +21,27 @@ export class ApiUtils {
 
   constructor() {
     this.apiKey = process.env.GENAPI_KEY || '';
+  }
+
+  // Постановка задачи плюс опрос. Все вызовы идут здесь, чтобы каждый попал
+  // в учёт: модель, длительность, исход и смета для аналитики
+  async run(model: string, label: string, body: unknown): Promise<GeneratedResponse> {
+    const started = Date.now();
+
+    try {
+      // FormData уходит со своим заголовком, иначе потеряется boundary
+      const headers: Record<string, string> = { Authorization: `Bearer ${this.getApiKey()}` };
+      if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json';
+
+      const initial = await axios.post(`${this.baseUrl}/networks/${model}`, body, { headers });
+      const result = await this.waitForResult(initial.data.request_id);
+
+      void recordGenapiCall({ model, label, ok: true, durationMs: Date.now() - started });
+      return result;
+    } catch (error: any) {
+      void recordGenapiCall({ model, label, ok: false, durationMs: Date.now() - started, error: error.message });
+      throw error;
+    }
   }
 
   // GenAPI отвечает асинхронно: опрашиваем задачу, пока не будет готова.

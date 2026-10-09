@@ -78,6 +78,21 @@ export const generationUsageRepo = {
     );
   },
 
+  // Подарок от админа: счётчик уходит в минус, и сверх квоты становится больше
+  // попыток. Живёт до конца текущего окна — потом счётчики обнулятся как обычно
+  async grant(userId: string, names: number, logos: number): Promise<void> {
+    await query(
+      `INSERT INTO user_generation_usage AS u (user_id, names_used, logos_used, reset_at)
+       VALUES ($1, -$2::int, -$3::int, now())
+       ON CONFLICT (user_id) DO UPDATE
+          SET names_used = CASE WHEN ${EXPIRED} THEN -$2::int ELSE u.names_used - $2::int END,
+              logos_used = CASE WHEN ${EXPIRED} THEN -$3::int ELSE u.logos_used - $3::int END,
+              reset_at   = CASE WHEN ${EXPIRED} THEN now() ELSE u.reset_at END,
+              updated_at = now()`,
+      [userId, names, logos]
+    );
+  },
+
   // Вызывается после успешной оплаты: окно начинается заново
   async reset(userId: string): Promise<void> {
     await query(

@@ -4,6 +4,7 @@ import { brandbooksRepo } from '../db/repositories';
 import { requireAuth } from '../auth/middleware';
 import { orderIdSchema } from '../auth/schemas';
 import { streamBrandbookArchive } from '../services/brandbookServices/archive';
+import { track } from '../services/eventsService';
 import { log } from '../logger';
 
 const router = Router();
@@ -41,6 +42,7 @@ router.get('/download-brandbook/:orderId', requireAuth, async (req, res) => {
       });
     }
 
+    track('download_brandbook', req.user!.id, { orderId: brandbook.orderId });
     return streamBrandbookArchive(res, brandbook);
   } catch (error: any) {
     log.error('Не удалось отдать архив брендбука:', error.message);

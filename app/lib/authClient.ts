@@ -119,6 +119,7 @@ export const authApi = {
     password: string;
     fullName?: string;
     consents: { pdn: true; marketing?: boolean };
+    attribution?: { source: string; medium?: string; campaign?: string; landing?: string };
   }) => post<{ success: true; message: string }>('/api/auth/register', payload),
 
   login: (payload: { email: string; password: string }) =>

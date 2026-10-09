@@ -15,6 +15,7 @@ import { logoService } from './logoService';
 import { mailService } from './mailService';
 import { alertService } from './alertService';
 import { brandbookReadyTemplate } from '../emails/brandbookReady';
+import { withOrderContext } from '../monitoring/genapiCalls';
 import { log } from '../logger';
 
 // Цены только на сервере: клиент их не присылает и повлиять на них не может.
@@ -30,6 +31,8 @@ export const CURRENCY = 'RUB';
 // брендбук на середине: иначе заказ висел бы до окна устаревания
 const active = new Set<Promise<void>>();
 let draining = false;
+
+export const activeDeliveriesCount = (): number => active.size;
 
 export const stopAcceptingDeliveries = (): void => {
   draining = true;
@@ -112,7 +115,8 @@ export async function syncWithYookassa(local: Payment): Promise<Payment> {
 export function startDelivery(payment: Payment): void {
   if (draining || payment.status !== 'succeeded' || payment.deliveryStatus === 'completed') return;
 
-  const running = deliverOrder(payment)
+  // Контекст заказа нужен учёту GenAPI: так видна себестоимость выдачи
+  const running = withOrderContext(payment.orderId, () => deliverOrder(payment))
     .catch((error: any) => {
       log.error(`Выдача заказа ${payment.orderId} сорвалась:`, error.message);
     })
@@ -289,7 +293,7 @@ async function deliverBrandbook(payment: Payment): Promise<void> {
 
 // Сборка идёт минутами, и покупатель обычно уходит со страницы успеха.
 // Сбой почты не повод считать заказ невыданным — товар уже в кабинете.
-async function notifyBrandbookReady(
+export async function notifyBrandbookReady(
   brandbookId: number,
   orderId: string,
   businessName: string,
