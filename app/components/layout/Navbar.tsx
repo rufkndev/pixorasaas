@@ -9,6 +9,13 @@ import LoginButton from '../../components/auth/LoginButton';
 import { AuthUser } from '../../lib/authClient';
 import { useRouter } from 'next/navigation';
 
+const NAV_LINKS = [
+  { href: '/logo-generator', label: 'Логотип' },
+  { href: '/name-generator', label: 'Названия' },
+  { href: '/pages/pricing', label: 'Цены' },
+  { href: '/blog', label: 'Блог' },
+];
+
 // Отображаемое имя: полное имя, иначе часть email до @
 const displayName = (user: AuthUser) =>
   user.fullName || user.email.split('@')[0] || 'Пользователь';
@@ -215,12 +222,11 @@ export default function Navbar() {
           </div>
           
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/pages/pricing" className="text-gray-700 hover:text-gray-900 transition-colors">
-              Цены
-            </Link>
-            <Link href="/pages/about" className="text-gray-700 hover:text-gray-900 transition-colors">
-              О нас
-            </Link>
+            {NAV_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className="text-gray-700 hover:text-gray-900 transition-colors">
+                {link.label}
+              </Link>
+            ))}
             
             {!mounted ? (
               <AuthSkeleton />
@@ -249,20 +255,16 @@ export default function Navbar() {
       {isMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 py-2">
           <div className="px-4 space-y-3">
-            <Link 
-              href="/pages/pricing" 
-              className="block text-gray-700 hover:text-gray-900 py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Цены
-            </Link>
-            <Link 
-              href="/pages/about" 
-              className="block text-gray-700 hover:text-gray-900 py-2"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              О нас
-            </Link>
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="block text-gray-700 hover:text-gray-900 py-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
             
             {!mounted ? (
               <AuthSkeleton isMobile={true} />

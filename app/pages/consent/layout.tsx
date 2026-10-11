@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Согласие на обработку персональных данных — Pixora',
+  title: 'Согласие на обработку персональных данных',
   description:
     'Текст согласия на обработку персональных данных, которое пользователь даёт при регистрации на сайте Pixora Labs.',
   robots: { index: true, follow: true },

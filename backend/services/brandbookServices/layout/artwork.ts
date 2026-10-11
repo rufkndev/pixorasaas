@@ -125,3 +125,18 @@ export const boxOfWidth = (artwork: Artwork | null, x: number, y: number, width:
   width,
   height: artwork ? width / artwork.aspect : width,
 });
+
+// Бокс не шире maxWidth и не выше maxHeight. В макетах только так: вертикальная
+// блокировка почти квадратная, и при вписывании по ширине наезжала на текст под ней
+export const boxWithin = (
+  artwork: Artwork | null,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxHeight: number
+): Box => {
+  const aspect = artwork?.aspect || 1;
+  const width = Math.min(maxWidth, maxHeight * aspect);
+
+  return { x, y, width, height: width / aspect };
+};

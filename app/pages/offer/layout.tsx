@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Публичная оферта — Pixora',
+  title: 'Публичная оферта',
   description:
     'Публичная оферта Pixora Labs: предмет договора, стоимость услуг, порядок оказания, права на результат, условия возврата денежных средств и реквизиты.',
   robots: { index: true, follow: true },

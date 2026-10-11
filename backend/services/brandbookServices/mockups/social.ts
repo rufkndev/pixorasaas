@@ -1,4 +1,4 @@
-import { boxOfWidth, place } from '../layout/artwork';
+import { boxWithin, place } from '../layout/artwork';
 import { rect, text, textBlock } from '../layout/svg';
 import { fitSize, wrap } from '../layout/textMetrics';
 import { MockupBuild, MockupContext, canvas } from './canvas';
@@ -42,7 +42,6 @@ const patternBand = (
 const post = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.darkArt || ctx.primaryArt;
-  const box = boxOfWidth(art, 0, 0, 260);
 
   const headline = ctx.slogan || ctx.name;
   const size = fitSize(headline, { font: ink.heading, size: 96, weight: 700 }, POST.width - 200, 44);
@@ -53,6 +52,7 @@ const post = (ctx: MockupContext): string => {
   // и текстом зияла пустота, и композиция разваливалась
   const lastBaseline = POST.height - 300;
   const firstBaseline = lastBaseline - (lines.length - 1) * lineHeight;
+  const box = boxWithin(art, 0, 0, 260, firstBaseline - size - 60 - 110);
 
   return canvas(
     POST.width,
@@ -89,11 +89,11 @@ const post = (ctx: MockupContext): string => {
 const story = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.primaryArt || ctx.wideArt;
-  const box = boxOfWidth(art, 0, 0, 420);
 
   const headline = ctx.slogan || ctx.name;
   const size = fitSize(headline, { font: ink.heading, size: 104, weight: 700 }, STORY.width - 200, 52);
   const lines = wrap(headline, { font: ink.heading, size, weight: 700 }, STORY.width - 200);
+  const box = boxWithin(art, 0, 0, 420, 1220 - size - 60 - 760);
 
   return canvas(
     STORY.width,
@@ -140,7 +140,11 @@ const story = (ctx: MockupContext): string => {
 const cover = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.darkArt || ctx.wideArt;
-  const box = boxOfWidth(art, 0, 0, 460);
+  const sloganSize = ctx.slogan ? fitSize(ctx.slogan, { font: ink.body, size: 46 }, COVER_SAFE.width - 40, 26) : 0;
+  const sloganBaseline = COVER.height - 150;
+  // Ниже логотипа — слоган или, без него, акцентная полоска
+  const bottom = ctx.slogan ? sloganBaseline - sloganSize - 40 : COVER.height - 110 - 40;
+  const box = boxWithin(art, 0, 0, 460, bottom - 130);
   const patternWidth = 520;
 
   return canvas(
@@ -153,10 +157,10 @@ const cover = (ctx: MockupContext): string => {
       ctx.slogan
         ? text({
             x: COVER_SAFE.x,
-            y: COVER.height - 150,
+            y: sloganBaseline,
             content: ctx.slogan,
             family: ink.body.family,
-            size: fitSize(ctx.slogan, { font: ink.body, size: 46 }, COVER_SAFE.width - 40, 26),
+            size: sloganSize,
             fill: ink.onDark,
             opacity: 0.85,
           })

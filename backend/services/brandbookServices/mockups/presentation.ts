@@ -1,4 +1,4 @@
-import { boxOfWidth, place } from '../layout/artwork';
+import { boxWithin, place } from '../layout/artwork';
 import { line, rect, text, textBlock } from '../layout/svg';
 import { fitSize, wrap } from '../layout/textMetrics';
 import { parseSvg } from '../layout/svgSource';
@@ -23,7 +23,7 @@ const icon = (svg: string | undefined, x: number, y: number, size: number, color
 const coverSlide = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.darkArt || ctx.primaryArt;
-  const box = boxOfWidth(art, 0, 0, 380);
+  const box = boxWithin(art, 0, 0, 380, 640);
 
   const size = fitSize(ctx.name, { font: ink.heading, size: 120, weight: 700 }, 1200, 56);
   const lines = wrap(ctx.name, { font: ink.heading, size, weight: 700 }, 1200);
@@ -65,7 +65,8 @@ const coverSlide = (ctx: MockupContext): string => {
 const contentSlide = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.wideArt || ctx.primaryArt;
-  const box = boxOfWidth(art, 0, 0, 220);
+  // Колонтитул: между линией на 940 и краем слайда остаётся около 110 px
+  const box = boxWithin(art, 0, 0, 220, 80);
 
   const columns = [0, 1, 2].map((index) => {
     const x = 160 + index * 540;

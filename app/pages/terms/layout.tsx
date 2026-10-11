@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Пользовательское соглашение — Pixora',
+  title: 'Пользовательское соглашение',
   description:
     'Правила использования сайта и сервисов Pixora Labs: учётная запись, права на результаты генерации, ограничение ответственности, порядок разрешения споров.',
   robots: { index: true, follow: true },

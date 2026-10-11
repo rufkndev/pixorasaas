@@ -1,4 +1,4 @@
-import { boxOfWidth, place } from '../layout/artwork';
+import { boxWithin, place } from '../layout/artwork';
 import { line, rect, text } from '../layout/svg';
 import { fitSize } from '../layout/textMetrics';
 import { MockupBuild, MockupContext, canvasMm } from './canvas';
@@ -23,7 +23,14 @@ const CONTACTS = [
 const front = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.darkArt || ctx.primaryArt;
-  const box = boxOfWidth(art, 0, 0, 44);
+  const sloganSize = ctx.slogan ? fitSize(ctx.slogan, { font: ink.body, size: 2.8 }, TRIM.width - 16, 2) : 0;
+  const sloganBaseline = SIZE.height - BLEED - 9;
+
+  // Логотип занимает место от безопасного поля до строки слогана (или до
+  // полосы внизу) и стоит по центру этого места
+  const top = SAFE;
+  const bottom = ctx.slogan ? sloganBaseline - sloganSize - 3 : SIZE.height - BLEED - 3 - 4;
+  const box = boxWithin(art, 0, 0, 44, bottom - top);
 
   return canvasMm(
     SIZE.width,
@@ -34,15 +41,15 @@ const front = (ctx: MockupContext): string => {
       place(art, {
         ...box,
         x: (SIZE.width - box.width) / 2,
-        y: (SIZE.height - box.height) / 2 - 3,
+        y: top + (bottom - top - box.height) / 2,
       }),
       ctx.slogan
         ? text({
             x: SIZE.width / 2,
-            y: SIZE.height - BLEED - 9,
+            y: sloganBaseline,
             content: ctx.slogan,
             family: ink.body.family,
-            size: fitSize(ctx.slogan, { font: ink.body, size: 2.8 }, TRIM.width - 16, 2),
+            size: sloganSize,
             fill: ink.onDark,
             opacity: 0.75,
             anchor: 'middle',
@@ -55,10 +62,11 @@ const front = (ctx: MockupContext): string => {
 const back = (ctx: MockupContext): string => {
   const { ink } = ctx;
   const art = ctx.wideArt || ctx.primaryArt;
-  const box = boxOfWidth(art, SAFE, SAFE, 32);
 
   const rows: string[] = [];
   const filled = CONTACTS.filter(([left]) => left);
+  const ruleY = SIZE.height - SAFE - filled.length * 5 - 4;
+  const box = boxWithin(art, SAFE, SAFE, 32, ruleY - 4 - SAFE);
   // Контакты прижаты к низу, логотип к верху: по центру они оставляли
   // пустую нижнюю треть, и карточка выглядела недовёрстанной
   let y = SIZE.height - SAFE - (filled.length - 1) * 5;
@@ -103,9 +111,9 @@ const back = (ctx: MockupContext): string => {
       place(art, box),
       line({
         x1: SAFE,
-        y1: SIZE.height - SAFE - filled.length * 5 - 4,
+        y1: ruleY,
         x2: SAFE + 14,
-        y2: SIZE.height - SAFE - filled.length * 5 - 4,
+        y2: ruleY,
         stroke: ink.accent,
         width: 0.6,
       }),

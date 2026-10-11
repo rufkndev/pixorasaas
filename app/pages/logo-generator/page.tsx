@@ -59,9 +59,9 @@ function LogoGeneratorContent() {
   useEffect(() => {
     setMounted(true);
 
-    // Перенаправление на главную, если нет названия или ключевых слов
+    // Без названия генерировать нечего — на лендинг, там форма с названием
     if (mounted && (!name || !keywords)) {
-      router.push('/');
+      router.replace('/logo-generator');
     }
   }, [mounted, name, keywords]);
 

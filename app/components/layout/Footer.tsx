@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { LEGAL_LINKS, REQUISITES } from '../../lib/legal';
+import { BRANDBOOK_SAMPLE_URL } from '../../lib/site';
 
 const linkClass = 'text-base text-gray-400 hover:text-white';
 const headingClass = 'text-sm font-semibold text-gray-300 tracking-wider uppercase';
@@ -13,7 +14,33 @@ export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div>
+            <h3 className={headingClass}>Сервис</h3>
+            <ul className="mt-4 space-y-4">
+              <li>
+                <Link href="/logo-generator" className={linkClass}>
+                  Генератор логотипов
+                </Link>
+              </li>
+              <li>
+                <Link href="/name-generator" className={linkClass}>
+                  Генератор названий
+                </Link>
+              </li>
+              <li>
+                <a href={BRANDBOOK_SAMPLE_URL} className={linkClass}>
+                  Образец брендбука
+                </a>
+              </li>
+              <li>
+                <Link href="/blog" className={linkClass}>
+                  Блог
+                </Link>
+              </li>
+            </ul>
+          </div>
+
           <div>
             <h3 className={headingClass}>О компании</h3>
             <ul className="mt-4 space-y-4">

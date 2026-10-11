@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import { PRICES, FREE_GENERATIONS, QUOTA_WINDOW_DAYS } from '../../lib/legal';
+import { BRANDBOOK_SAMPLE_PAGES, BRANDBOOK_SAMPLE_URL } from '../../lib/site';
 export default function PricingPage() {
   return (
     <>
@@ -66,7 +67,7 @@ export default function PricingPage() {
               {/* Кнопка выбора тарифа */}
               <div className="px-6 py-8 bg-gray-50 border-t border-gray-200">
                 <Link
-                  href="/"
+                  href="/logo-generator"
                   className="block w-full text-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gray-900 hover:bg-gray-800"
                 >
                   Выбрать
@@ -131,11 +132,19 @@ export default function PricingPage() {
               {/* Кнопка выбора тарифа */}
               <div className="px-6 py-8 bg-gray-50 border-t border-gray-200">
                 <Link
-                  href="/"
+                  href="/logo-generator"
                   className="block w-full text-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-gray-900 hover:bg-gray-800"
                 >
                   Выбрать
                 </Link>
+                <a
+                  href={BRANDBOOK_SAMPLE_URL}
+                  target="_blank"
+                  rel="noopener"
+                  className="mt-3 block text-center text-sm font-medium text-gray-700 underline underline-offset-4 hover:text-gray-900"
+                >
+                  Посмотреть образец брендбука (PDF, {BRANDBOOK_SAMPLE_PAGES} страниц)
+                </a>
               </div>
             </div>
           </div>

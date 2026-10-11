@@ -1,39 +1,12 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '../../lib/site';
 
-export const metadata: Metadata = {
-  title: 'О компании Pixora - Инновационные решения для брендинга с ИИ',
-  description: 'Узнайте о миссии Pixora - сделать профессиональный брендинг доступным всем. Передовые технологии ИИ для создания логотипов, названий и брендбуков.',
-  keywords: [
-    'о компании pixora',
-    'миссия pixora',
-    'технологии искусственного интеллекта',
-    'автоматизация брендинга',
-    'команда pixora',
-    'инновации в дизайне',
-    'профессиональный брендинг',
-    'доступный дизайн'
-  ],
-  openGraph: {
-    title: 'О компании Pixora - Инновационные решения для брендинга с ИИ',
-    description: 'Узнайте о миссии Pixora - сделать профессиональный брендинг доступным всем. Передовые технологии ИИ для создания логотипов.',
-    url: 'https://pixora-ai.ru/pages/about',
-    images: [
-      {
-        url: 'https://pixora-ai.ru/logo.svg',
-        width: 1200,
-        height: 630,
-        alt: 'О компании Pixora',
-      },
-    ],
-  },
-  twitter: {
-    title: 'О компании Pixora - Инновационные решения для брендинга с ИИ',
-    description: 'Узнайте о миссии Pixora - сделать профессиональный брендинг доступным всем.',
-  },
-  alternates: {
-    canonical: 'https://pixora-ai.ru/pages/about',
-  },
-};
+export const metadata: Metadata = pageMetadata({
+  title: 'О сервисе Pixora',
+  description:
+    'Pixora — онлайн-сервис, который с помощью ИИ подбирает название, рисует логотип и собирает брендбук для малого бизнеса. Как он устроен и кто за ним стоит.',
+  path: '/pages/about',
+});
 
 export default function AboutLayout({
   children,

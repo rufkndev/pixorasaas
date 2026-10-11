@@ -1,70 +1,26 @@
-# Robots.txt для pixora-ai.ru
-# Обновлено: 2026-08-27
+# Одна группа на всех роботов. Отдельные группы для Googlebot и Yandex с одним
+# «Allow: /» отменяли для них все Disallow ниже: робот читает только свою группу.
+# ИИ-поисковики (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, YandexAdditional)
+# сюда тоже попадают и могут читать открытые страницы — это и нужно для ответов ИИ.
 
 User-agent: *
-Allow: /
-
-# Основные страницы (высокий приоритет для индексации)
-Allow: /pages/about
-Allow: /pages/pricing
-Allow: /pages/logo-generator
-Allow: /pages/brandbook-generator
-Allow: /pages/contact
-
-# Юридические документы должны быть доступны неограниченному кругу лиц
-Allow: /pages/offer
-Allow: /pages/terms
-Allow: /pages/personal-data
-Allow: /pages/consent
-Allow: /pages/privacy
-Allow: /pages/cookies
-
-# Запрещаем индексацию технических и служебных страниц
 Disallow: /admin
-Disallow: /pages/dashboard/
-Disallow: /pages/payment/
+Disallow: /api/
+Disallow: /generated-logos/
+Disallow: /pages/dashboard
+Disallow: /pages/payment
+# Правило работает по префиксу: без $ оно закрыло бы и /pages/brandbook-generator
+Disallow: /pages/brandbook$
 Disallow: /pages/brandbook/
+Disallow: /pages/brandbook?
 Disallow: /pages/login
 Disallow: /pages/register
 Disallow: /pages/forgot-password
 Disallow: /pages/reset-password
 Disallow: /pages/verify-email
-Disallow: /api/
-Disallow: /_next/
-Disallow: /backend/
-Disallow: /node_modules/
-Disallow: /.git/
-Disallow: /generated-logos/
+# Шаги генератора не закрыты: робот должен увидеть на них noindex
 
-# Разрешаем доступ к статическим ресурсам
-Allow: /logo.svg
-Allow: /placeholder-logo.svg
-Allow: /testimonials/
-Allow: /*.css
-Allow: /*.js
-Allow: /*.png
-Allow: /*.jpg
-Allow: /*.jpeg
-Allow: /*.svg
-Allow: /*.webp
-
-# Специальные правила для поисковых ботов
-User-agent: Googlebot
-Allow: /
-Crawl-delay: 1
-
-User-agent: Yandex
-Allow: /
-Crawl-delay: 1
-
-User-agent: Bingbot
-Allow: /
-Crawl-delay: 1
-
-# Указываем путь к карте сайта
-Sitemap: https://pixora-ai.ru/sitemap.xml
-
-# Запрещаем индексацию для других ботов (защита от спама)
+# Сервисы SEO-аналитики нагружают сервер и ничего не дают поиску
 User-agent: AhrefsBot
 Disallow: /
 
@@ -73,3 +29,5 @@ Disallow: /
 
 User-agent: SemrushBot
 Disallow: /
+
+Sitemap: https://pixora-ai.ru/sitemap.xml

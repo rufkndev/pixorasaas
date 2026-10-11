@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Регистрация — Pixora',
+  title: 'Регистрация',
   description: 'Создание аккаунта Pixora.',
   robots: { index: false, follow: false },
   alternates: { canonical: 'https://pixora-ai.ru/pages/register' },

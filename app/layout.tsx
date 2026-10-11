@@ -8,37 +8,29 @@ import type { Metadata } from 'next';
 import { AuthProvider } from './context/AuthContext';
 import CookieBanner from './components/legal/CookieBanner';
 import Telemetry from './components/common/Telemetry';
+import JsonLd from './components/seo/JsonLd';
+import { FREE_GENERATIONS, PRICES, REQUISITES } from './lib/legal';
+import { OG_IMAGE, SITE_NAME, SITE_URL } from './lib/site';
 
+const DESCRIPTION =
+  `Название, логотип и брендбук для бизнеса с помощью ИИ. ${FREE_GENERATIONS} бесплатных генераций, ` +
+  `логотип в SVG и PNG — ${PRICES.logo} ₽, брендбук в PDF — ${PRICES.brandbook} ₽.`;
+
+// canonical здесь не задаём: его унаследовала бы каждая страница без своего
+// canonical, и поисковик склеил бы её с главной
 export const metadata: Metadata = {
   title: {
-    default: 'Pixora - AI генератор названий, логотипов и брендбуков | pixora-ai.ru',
-    template: '%s | Pixora - AI брендинг',
+    default: 'Pixora — генератор названий, логотипов и брендбуков с ИИ',
+    template: '%s | Pixora',
   },
-  description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков. Более 10,000 довольных клиентов. Цены от 299₽.',
-  keywords: [
-    'генератор логотипов',
-    'создание бренда',
-    'ИИ логотип',
-    'брендбук онлайн',
-    'название для бизнеса',
-    'фирменный стиль',
-    'искусственный интеллект брендинг',
-    'логотип за 5 минут',
-    'дизайн логотипа',
-    'корпоративная айдентика'
-  ],
-  authors: [{ name: 'Pixora Labs' }],
-  creator: 'Pixora Labs',
-  publisher: 'Pixora Labs',
+  description: DESCRIPTION,
+  applicationName: SITE_NAME,
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://pixora-ai.ru'),
-  alternates: {
-    canonical: '/',
-  },
+  metadataBase: new URL(SITE_URL),
   robots: {
     index: true,
     follow: true,
@@ -59,25 +51,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
-    url: 'https://pixora-ai.ru',
-    siteName: 'Pixora',
-    title: 'Pixora - AI генератор названий, логотипов и брендбуков',
-    description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков. Более 10,000 довольных клиентов.',
-    images: [
-      {
-        url: '/logo.svg',
-        width: 1200,
-        height: 630,
-        alt: 'Pixora - AI генератор логотипов',
-      },
-    ],
+    siteName: SITE_NAME,
+    title: 'Pixora — название, логотип и брендбук с ИИ',
+    description: DESCRIPTION,
+    images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pixora - AI генератор названий, логотипов и брендбуков',
-    description: 'Создайте уникальный бренд с ИИ за 5 минут! Генерация названий, логотипов и брендбуков.',
-    images: ['/logo.svg'],
-    creator: '@pixora_labs',
+    title: 'Pixora — название, логотип и брендбук с ИИ',
+    description: DESCRIPTION,
+    images: [OG_IMAGE.url],
   },
   verification: {
     google: '8zBpq3SeL2SyOL_EXaX09iJTg7pHgnxTNcaXnoxIRoY',
@@ -85,56 +68,46 @@ export const metadata: Metadata = {
   },
 };
 
+// Только проверяемые факты: ИИ-поисковики сверяют разметку с текстом страницы
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${SITE_URL}/#organization`,
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.svg`,
+    email: REQUISITES.email,
+    telephone: REQUISITES.phoneHref,
+    description: 'Онлайн-сервис, который с помощью ИИ генерирует названия, логотипы и брендбуки для малого бизнеса.',
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      email: REQUISITES.email,
+      url: `${SITE_URL}/pages/contact`,
+      availableLanguage: 'ru',
+    },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${SITE_URL}/#website`,
+    name: SITE_NAME,
+    url: SITE_URL,
+    inLanguage: 'ru-RU',
+    publisher: { '@id': `${SITE_URL}/#organization` },
+  },
+];
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Pixora",
-    "url": "https://pixora-ai.ru",
-    "logo": "https://pixora-ai.ru/logo.svg",
-    "description": "Создание уникального брендинга с помощью искусственного интеллекта - логотипы, названия и брендбуки за 5 минут",
-    "foundingDate": "2024",
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "contactType": "customer service",
-      "url": "https://pixora-ai.ru/pages/contact"
-    },
-    "sameAs": [
-      "https://github.com/rufkndev/pixorasaas"
-    ],
-    "offers": [
-      {
-        "@type": "Offer",
-        "name": "Генерация логотипа",
-        "price": "299",
-        "priceCurrency": "RUB",
-        "description": "Профессиональный логотип для вашего бизнеса с ИИ"
-      },
-      {
-        "@type": "Offer", 
-        "name": "Полный брендбук",
-        "price": "499",
-        "priceCurrency": "RUB",
-        "description": "Комплексное решение для вашего бренда включая логотип, цвета и руководство"
-      }
-    ],
-    "applicationCategory": "Design Tool",
-    "operatingSystem": "Web Browser"
-  };
-
   return (
     <html lang="ru">
       <head>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData),
-          }}
-        />
+        <JsonLd data={structuredData} />
       </head>
       <body>
         <AuthProvider>
@@ -145,4 +118,4 @@ export default function RootLayout({
       </body>
     </html>
   );
-} 
+}

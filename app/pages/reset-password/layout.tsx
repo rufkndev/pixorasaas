@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Смена пароля — Pixora',
+  title: 'Смена пароля',
   description: 'Установка нового пароля по ссылке из письма.',
   robots: { index: false, follow: false },
 };

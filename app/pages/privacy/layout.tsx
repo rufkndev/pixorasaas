@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Политика конфиденциальности — Pixora',
+  title: 'Политика конфиденциальности',
   description:
     'Какие данные собирает Pixora Labs, зачем они нужны, где хранятся и как отозвать согласие на их обработку.',
   robots: { index: true, follow: true },

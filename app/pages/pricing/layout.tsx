@@ -1,38 +1,39 @@
 import type { Metadata } from 'next';
+import JsonLd from '../../components/seo/JsonLd';
+import { FREE_GENERATIONS, PRICES } from '../../lib/legal';
+import { pageMetadata, SITE_URL } from '../../lib/site';
 
-export const metadata: Metadata = {
-  title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
-  description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽. Высокое качество, быстрая генерация, без вотермарок.',
-  keywords: [
-    'цены на логотипы',
-    'стоимость брендбука',
-    'тарифы pixora',
-    'доступный брендинг',
-    'цена логотипа 299 рублей',
-    'полный брендбук 499 рублей',
-    'профессиональный дизайн недорого',
-    'генерация логотипа цена'
+export const metadata: Metadata = pageMetadata({
+  title: `Цены: логотип ${PRICES.logo} ₽, брендбук ${PRICES.brandbook} ₽`,
+  description:
+    `Сколько стоит Pixora: ${FREE_GENERATIONS} бесплатных генераций названий и логотипов, логотип в SVG и PNG без водяного знака — ${PRICES.logo} ₽, ` +
+    `брендбук в PDF с архивом файлов — ${PRICES.brandbook} ₽. Разовая оплата, без подписки.`,
+  path: '/pages/pricing',
+});
+
+const offer = (name: string, price: number, description: string) => ({
+  '@type': 'Offer',
+  name,
+  description,
+  price: String(price),
+  priceCurrency: 'RUB',
+  availability: 'https://schema.org/InStock',
+  url: `${SITE_URL}/pages/pricing`,
+  seller: { '@id': `${SITE_URL}/#organization` },
+});
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Pixora',
+  url: SITE_URL,
+  applicationCategory: 'DesignApplication',
+  operatingSystem: 'Любой браузер',
+  inLanguage: 'ru-RU',
+  offers: [
+    offer('Логотип', PRICES.logo, 'Логотип в SVG и PNG без водяного знака'),
+    offer('Брендбук', PRICES.brandbook, 'Брендбук в PDF и архив с версиями логотипа, шрифтами, иконками и макетами'),
   ],
-  openGraph: {
-    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
-    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽.',
-    url: 'https://pixora-ai.ru/pages/pricing',
-    images: [
-      {
-        url: 'https://pixora-ai.ru/logo.svg',
-        width: 1200,
-        height: 630,
-        alt: 'Цены Pixora - от 299₽',
-      },
-    ],
-  },
-  twitter: {
-    title: 'Цены на создание логотипов и брендбуков - Тарифы Pixora от 299₽',
-    description: 'Доступные цены на профессиональный брендинг с ИИ. Логотип от 299₽, полный брендбук от 499₽.',
-  },
-  alternates: {
-    canonical: 'https://pixora-ai.ru/pages/pricing',
-  },
 };
 
 export default function PricingLayout({
@@ -40,45 +41,9 @@ export default function PricingLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "PriceSpecification",
-    "offers": [
-      {
-        "@type": "Offer",
-        "name": "Генерация логотипа",
-        "price": "299",
-        "priceCurrency": "RUB",
-        "description": "Профессиональный логотип для вашего бизнеса",
-        "availability": "https://schema.org/InStock",
-        "seller": {
-          "@type": "Organization",
-          "name": "Pixora"
-        }
-      },
-      {
-        "@type": "Offer",
-        "name": "Полный брендбук", 
-        "price": "499",
-        "priceCurrency": "RUB",
-        "description": "Комплексное решение для вашего бренда",
-        "availability": "https://schema.org/InStock",
-        "seller": {
-          "@type": "Organization",
-          "name": "Pixora"
-        }
-      }
-    ]
-  };
-
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData),
-        }}
-      />
+      <JsonLd data={structuredData} />
       {children}
     </>
   );

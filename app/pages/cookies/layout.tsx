@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Политика использования файлов cookie — Pixora',
+  title: 'Политика использования файлов cookie',
   description:
     'Какие файлы cookie использует сайт Pixora Labs, зачем они нужны, сколько хранятся и как ими управлять.',
   robots: { index: true, follow: true },
