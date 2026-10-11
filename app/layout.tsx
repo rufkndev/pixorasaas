@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     images: [OG_IMAGE.url],
   },
   verification: {
-    google: '8zBpq3SeL2SyOL_EXaX09iJTg7pHgnxTNcaXnoxIRoY',
+    google: 'v2-aXR4y3k-FVGzXsJ5amp9GkSHMSq9V8Mkp3p4TzQY',
     yandex: '34f4c7628ceddfc6',
   },
 };
