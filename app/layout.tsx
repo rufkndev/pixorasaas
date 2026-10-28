@@ -44,8 +44,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/logo.svg',
-    apple: '/logo.svg',
     shortcut: '/logo.svg',
+    // Явный список отключает файловые соглашения Next, поэтому PNG из app/apple-icon.tsx
+    // прописан здесь: SVG для значка на домашнем экране iOS не берёт
+    apple: { url: '/apple-icon', sizes: '180x180', type: 'image/png' },
   },
   manifest: '/manifest.json',
   openGraph: {

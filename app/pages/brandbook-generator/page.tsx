@@ -114,7 +114,6 @@ function BrandbookPreviewContent() {
             <p className="text-gray-400 text-sm mt-4 max-w-2xl mx-auto">
               Так устроен ваш будущий брендбук: те же разделы, что в PDF. Вместо содержимого здесь
               заглушки — цвета, шрифты и версии логотипа соберём под ваш логотип после оплаты.
-              Получите PDF на ~15 страниц и архив с исходниками.
             </p>
             <div className="mt-6">
               <BuyButton light />
@@ -204,8 +203,8 @@ function BrandbookPreviewContent() {
           <div className="bg-white p-8 rounded-lg shadow-md border border-gray-200 text-center space-y-4">
             <h2 className="text-2xl font-bold text-gray-900">Заберите брендбук целиком</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              PDF на ~15 страниц, логотип в 7 версиях без водяного знака, шрифты, иконки и готовые
-              макеты — одним архивом. Соберём за несколько минут после оплаты и пришлём ссылку на почту.
+              Все исходники и брендбук в PDF-формате в одном архиве. Соберём за несколько минут после
+              оплаты и пришлём ссылку на почту.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <BuyButton />

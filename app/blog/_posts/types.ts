@@ -14,4 +14,7 @@ export interface BlogPost {
   summary: string[];
   body: ReactNode;
   faq: FaqItem[];
+  // Слаги статей для блока «Читайте также». Подобраны по смыслу: перелинковка
+  // по теме сильнее для поиска, чем три последние статьи подряд
+  related?: string[];
 }

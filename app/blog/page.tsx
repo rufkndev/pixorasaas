@@ -2,15 +2,32 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
-import { pageMetadata } from '../lib/site';
+import JsonLd from '../components/seo/JsonLd';
+import { absoluteUrl, pageMetadata, SITE_URL } from '../lib/site';
 import { formatDate, POSTS } from './_posts';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Блог о названиях, логотипах и брендбуках',
   description:
-    'Практичные ответы для малого бизнеса: сколько стоит логотип, как придумать и проверить название, что входит в брендбук, как зарегистрировать товарный знак.',
+    'Практичные ответы для малого бизнеса: сколько стоит логотип, логотип для ИП и магазина на маркетплейсе, как придумать и проверить название, как самому зарегистрировать товарный знак.',
   path: '/blog',
 });
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'Blog',
+  name: 'Блог Pixora',
+  url: absoluteUrl('/blog'),
+  inLanguage: 'ru-RU',
+  publisher: { '@id': `${SITE_URL}/#organization` },
+  blogPost: POSTS.map((post) => ({
+    '@type': 'BlogPosting',
+    headline: post.title,
+    url: absoluteUrl(`/blog/${post.slug}`),
+    datePublished: post.published,
+    dateModified: post.updated,
+  })),
+};
 
 export default function BlogIndex() {
   return (
@@ -39,6 +56,7 @@ export default function BlogIndex() {
         </div>
       </main>
       <Footer />
+      <JsonLd data={structuredData} />
     </>
   );
 }

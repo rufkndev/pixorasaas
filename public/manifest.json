@@ -1,7 +1,7 @@
 {
-  "name": "Pixora - AI генератор логотипов и брендбуков",
+  "name": "Pixora — генератор названий, логотипов и брендбуков",
   "short_name": "Pixora",
-  "description": "Создайте уникальный бренд с помощью ИИ за 5 минут",
+  "description": "Название, логотип и брендбук для бизнеса с помощью ИИ",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -15,16 +15,12 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "design", "productivity"],
+  "categories": [
+    "business",
+    "design",
+    "productivity"
+  ],
   "lang": "ru",
   "dir": "ltr",
-  "scope": "/",
-  "screenshots": [
-    {
-      "src": "/logo.svg",
-      "sizes": "1280x720",
-      "type": "image/svg+xml",
-      "form_factor": "wide"
-    }
-  ]
+  "scope": "/"
 }

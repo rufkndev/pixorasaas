@@ -7,6 +7,7 @@ import LogoStartForm from '../components/landing/LogoStartForm';
 import JsonLd from '../components/seo/JsonLd';
 import { FREE_GENERATIONS, PRICES, QUOTA_WINDOW_DAYS } from '../lib/legal';
 import { BRANDBOOK_SAMPLE_PAGES, BRANDBOOK_SAMPLE_URL, pageMetadata, SITE_URL } from '../lib/site';
+import { NICHES } from './_niches';
 
 // Серверная страница без входа: поисковик и ИИ-ассистенты видят весь текст сразу.
 // Сам генератор — шаг /pages/logo-generator, он закрыт от индекса
@@ -98,9 +99,9 @@ export default function LogoGeneratorLanding() {
                 Генератор логотипов онлайн с ИИ
               </h1>
               <p className="mt-5 text-lg text-gray-700">
-                Введите название и пару слов о бизнесе — нейросеть нарисует знак, а мы наберём название настоящим
-                шрифтом. {FREE_GENERATIONS} вариантов бесплатно, файлы без водяного знака — {PRICES.logo} ₽.
+                Введите название и пару слов о бизнесе — ИИ сгенерирует логотип, сервер обработает его программно
               </p>
+              <p className="mt-3 text-lg text-gray-700">На выходе — подходящее начало вашего бренда.</p>
               <ul className="mt-6 space-y-2 text-gray-700">
                 <li>— Кириллица без ошибок: буквы набираются шрифтом, а не рисуются</li>
                 <li>— Вектор SVG после оплаты — для печати и вывесок</li>
@@ -116,9 +117,6 @@ export default function LogoGeneratorLanding() {
             </div>
             <div>
               <LogoStartForm />
-              <p className="mt-3 text-xs text-gray-500">
-                Для генерации нужен аккаунт: так мы считаем бесплатные попытки.
-              </p>
             </div>
           </div>
         </section>
@@ -135,6 +133,25 @@ export default function LogoGeneratorLanding() {
                 </li>
               ))}
             </ol>
+          </section>
+
+          <section className="py-12">
+            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">Логотип для вашей ниши</h2>
+            <p className="mt-3 text-gray-700">
+              Где будет жить логотип, какие приёмы работают и каких штампов избегать — разобрали для частых случаев.
+            </p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {NICHES.map((niche) => (
+                <li key={niche.slug}>
+                  <Link
+                    href={`/logo-generator/${niche.slug}`}
+                    className="block h-full rounded-lg border border-gray-200 p-4 font-medium text-gray-900 hover:border-gray-400"
+                  >
+                    {niche.h1}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="py-12">

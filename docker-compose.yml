@@ -55,6 +55,9 @@ services:
       - .:/app
       # Пустые volume'ы прячут node_modules и .next хоста.
       # Зависимости лежат в образе по пути /node_modules, см. Dockerfile.
+      # docker:dev пересоздаёт их (--renew-anon-volumes): иначе compose переносит
+      # старый .next в новый контейнер, и устаревший кэш webpack ломал рендер
+      # ошибкой «Cannot read properties of null (reading 'useInsertionEffect')»
       - /app/node_modules
       - /app/.next
       - generated-logos:/app/public/generated-logos

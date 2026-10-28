@@ -68,6 +68,8 @@ const VECTOR_OPTIONS = {
 } as const;
 // Ниже этого знак считается пустым кадром
 const MIN_INK_SHARE = 0.02;
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+const DOWNLOAD_ATTEMPTS = 3;
 
 // dalle-3 по умолчанию переписывает промпт и добавляет отсебятину:
 // сцену, фон, детали. С этой приставкой он берёт текст как есть,
@@ -116,23 +118,20 @@ export class LogoService {
     return this.storeLogo(svg, concept, drawn?.raw ?? null, resolvedStyle);
   }
 
-  // Пустой кадр — брак модели, одна повторная попытка.
+  // Повторяем только пустой кадр — это брак модели. Исключение не повторяем: задача
+  // в GenAPI к этому моменту обычно уже выполнена и оплачена, и повтор покупал второй
+  // кадр, а пользователь всё равно получал ошибку. Отсюда были двойные списания.
   // Сырой кадр возвращаем вместе с обработанным: покупатель получает и его
   private async drawMark(concept: LogoConcept): Promise<{ mark: Buffer; raw: Buffer } | null> {
     for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const raw = await this.requestImage(concept, attempt > 0);
-        const mark = await rasterService.toTransparentMark(raw);
+      const raw = await this.requestImage(concept, attempt > 0);
+      const mark = await rasterService.toTransparentMark(raw);
 
-        if (await rasterService.inkShare(mark.png) >= MIN_INK_SHARE) {
-          return { mark: mark.png, raw };
-        }
-
-        log.error('Знак пришёл пустым, повторяем');
-      } catch (error: any) {
-        log.error(`Не удалось получить знак (попытка ${attempt + 1}):`, error.message);
-        if (attempt === 1) throw error;
+      if (await rasterService.inkShare(mark.png) >= MIN_INK_SHARE) {
+        return { mark: mark.png, raw };
       }
+
+      log.error('Знак пришёл пустым, повторяем');
     }
 
     return null;
@@ -152,8 +151,22 @@ export class LogoService {
       throw new Error(`Ссылка на логотип не найдена: ${JSON.stringify(result).slice(0, 300)}`);
     }
 
-    const file = await axios.get(url, { responseType: 'arraybuffer' });
-    return Buffer.from(file.data);
+    return this.download(url);
+  }
+
+  // Кадр уже оплачен, поэтому при обрыве повторяем скачивание, а не генерацию.
+  // Без таймаута зависшее соединение держало запрос до обрыва прокси
+  private async download(url: string): Promise<Buffer> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const file = await axios.get(url, { responseType: 'arraybuffer', timeout: DOWNLOAD_TIMEOUT_MS });
+        return Buffer.from(file.data);
+      } catch (error: any) {
+        if (attempt === DOWNLOAD_ATTEMPTS) throw error;
+        log.error(`Не удалось скачать кадр (попытка ${attempt}):`, error.message);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
   }
 
   private buildPrompt(concept: LogoConcept, retry: boolean): string {
@@ -346,8 +359,8 @@ export class LogoService {
       throw new Error(`Векторизация не вернула файл: ${JSON.stringify(result).slice(0, 300)}`);
     }
 
-    const file = await axios.get(url, { responseType: 'text' });
-    const { svg } = await svgService.normalize(file.data as string);
+    const file = await this.download(url);
+    const { svg } = await svgService.normalize(file.toString('utf8'));
 
     fs.writeFileSync(svgPath, svg);
     return `${GENERATED_LOGOS_URL_PREFIX}${path.basename(svgPath)}`;

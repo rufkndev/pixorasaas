@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,19 +11,50 @@ import { apiFetch } from '../../lib/authClient';
 import { describeGenerationError } from '../../lib/generationErrors';
 import { PRICES } from '../../lib/legal';
 import { trackEvent } from '../../lib/telemetry';
-import GenerationQuota, { QuotaLimits } from '../../components/common/GenerationQuota';
 import React from 'react';
 
-// Сверено с полосами PDF и содержимым архива: обещать можно только то,
-// что сборка действительно отдаёт покупателю
-const BRANDBOOK_CONTENTS: Array<[string, string]> = [
-  ['Логотип в 7 версиях', 'Основная, горизонтальная, вертикальная, только знак, чёрная, белая и в фирменном цвете — SVG и PNG'],
-  ['Палитра от вашего логотипа', '6 цветов с HEX, RGB и CMYK и проверенным контрастом текста'],
-  ['Пара шрифтов с кириллицей', 'Файлы в архиве, лицензия разрешает коммерческое использование'],
-  ['Иконки и паттерны', '12 иконок в одном стиле, паттерны и подложки в фирменных цветах'],
-  ['Готовые макеты', 'Визитка для типографии, пост и сторис, обложка ВКонтакте, слайд, подпись письма'],
-  ['Правила и голос бренда', 'Слоган, характер, охранное поле, что делать нельзя и как писать тексты'],
+// Сверено с архивом download-logo и кнопками кабинета: обещать можно только то,
+// что покупатель действительно скачает
+const LOGO_FILES = [
+  'Вектор SVG — для печати, вывесок и сайта, масштабируется без потери качества',
+  'PNG 3072 px с прозрачным фоном',
+  'JPG на белом фоне',
+  'Исходный кадр нейросети',
+  'Все файлы без водяного знака, одним архивом',
+  'Полные права на использование',
 ];
+
+// Идёт по полосам PDF в их порядке (layout/pages/index.ts). Меняется состав
+// полос — правьте и этот список
+const BRANDBOOK_PDF = [
+  'Обложка и содержание',
+  'О бренде: слоган, кому это нужно, характер и голос бренда с примерами «так — да / так — нет»',
+  'Логотип в 7 версиях: основная, горизонтальная, вертикальная, только знак, чёрная, белая и в фирменном цвете',
+  'Охранное поле и минимальный размер логотипа в печати',
+  'Недопустимое использование логотипа — наглядно, на примерах',
+  '6 фирменных цветов от вашего логотипа: HEX, RGB, CMYK и пропорции в макете',
+  'Контраст и сочетания: какой текст читается на каждом цвете',
+  'Пара шрифтов с кириллицей: размерная шкала и правила набора',
+  'Набор текста: иерархия заголовков и примеры «так не надо»',
+  '12 иконок в одном стиле, паттерны, разделители и подложки в фирменных цветах',
+  'Носители: визитка для типографии, пост, сторис, обложка ВКонтакте, слайд презентации, подпись письма',
+  'Выходные данные: шрифты, наборы иконок и их лицензии',
+];
+
+function CheckList({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-2 mb-6">
+      {items.map((item) => (
+        <li key={item} className="flex items-start">
+          <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-gray-700 text-sm">{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // Компонент страницы генерации логотипа
 function LogoGeneratorContent() {
@@ -31,7 +62,7 @@ function LogoGeneratorContent() {
   const searchParams = useSearchParams();
   // Страница доступна только авторизованным: раньше сюда мог зайти любой
   // и отправить userId: undefined
-  const { user, isLoading: isAuthLoading } = useRequireAuth();
+  const { isLoading: isAuthLoading } = useRequireAuth();
   
   // Получаем название и ключевые слова из URL параметров
   const name = searchParams.get('name') || '';
@@ -44,9 +75,9 @@ function LogoGeneratorContent() {
   const [logoUrl, setLogoUrl] = useState('');
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  // null — остаток ещё не известен (не загружен или запрос не удался)
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [limits, setLimits] = useState<QuotaLimits | null>(null);
+  // Счётчика на странице нет, поэтому про исчерпанную квоту говорим только в ответ
+  // на попытку — и рядом с логотипом, а не экраном ошибки
+  const [limitMessage, setLimitMessage] = useState('');
   // Прошлые варианты не выбрасываем: к ним можно вернуться, а их предметы
   // уходят в exclude, чтобы модель не предлагала то же самое
   const [history, setHistory] = useState<string[]>([]);
@@ -54,6 +85,9 @@ function LogoGeneratorContent() {
   // Оплата и предпросмотр принимают id логотипа, а не ссылку на картинку
   const [logoIds, setLogoIds] = useState<Record<string, number>>({});
   const logoId = logoIds[logoUrl];
+  // Состояние обновится только на следующем рендере, и двойной клик успевал
+  // отправить два запроса — это две оплаченные генерации в GenAPI
+  const inFlight = useRef(false);
 
   // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
@@ -65,27 +99,16 @@ function LogoGeneratorContent() {
     }
   }, [mounted, name, keywords]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    // Остаток — справочная информация, его недоступность не мешает генерации
-    apiFetch('/api/generation-limits')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data) {
-          setRemaining(data.logos);
-          setLimits(data);
-        }
-      })
-      .catch(() => {});
-  }, [user]);
-
   // Функция для генерации логотипа
   const generateLogo = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+
     if (shownSubjects.length > 0) trackEvent('logo_more_variants', { shown: shownSubjects.length });
 
     setIsGenerating(true);
     setError('');
+    setLimitMessage('');
     
     try {
       // Вызов API для генерации логотипа
@@ -104,11 +127,8 @@ function LogoGeneratorContent() {
         }),
       });
 
-      const data = await response.json();
-
-      if (typeof data.remaining === 'number') {
-        setRemaining(data.remaining);
-      }
+      // При обрыве прокси приходит текст «Internal Server Error», а не JSON
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         const failure: any = new Error(data.error || data.message || 'Не удалось сгенерировать логотип');
@@ -116,7 +136,10 @@ function LogoGeneratorContent() {
         throw failure;
       }
 
-      // Устанавливаем URL сгенерированного логотипа
+      // Прошлый вариант уходит в историю только сейчас: при отказе он остаётся на экране
+      if (logoUrl) {
+        setHistory((previous) => (previous.includes(logoUrl) ? previous : [...previous, logoUrl]));
+      }
       setLogoUrl(data.logoUrl);
 
       if (typeof data.logoId === 'number') {
@@ -128,26 +151,16 @@ function LogoGeneratorContent() {
       }
 
     } catch (err: any) {
-      // Про лимит сообщает блок с остатком: экран ошибки увёл бы со страницы
+      // Экран ошибки спрятал бы уже сгенерированные варианты
       if (err?.code === 'GENERATION_LIMIT') {
-        setRemaining(0);
+        setLimitMessage(err.message);
       } else {
         setError(describeGenerationError(err, 'Произошла ошибка при генерации логотипа'));
       }
     } finally {
+      inFlight.current = false;
       setIsGenerating(false);
     }
-  };
-
-  // Кнопка для повторной генерации логотипа
-  const regenerateLogo = async () => {
-    // Прошлый вариант уходит в историю, а не в корзину: пользователь может
-    // вернуться к нему, не тратя ещё одну генерацию
-    if (logoUrl) {
-      setHistory((previous) => (previous.includes(logoUrl) ? previous : [...previous, logoUrl]));
-    }
-    setLogoUrl('');
-    await generateLogo();
   };
 
   const LoadingSkeleton = () => (
@@ -216,14 +229,12 @@ function LogoGeneratorContent() {
                   
                   {/* Превью логотипа */}
                   <div className="mb-8">
-                    <GenerationQuota remaining={remaining} limits={limits} kind="logos" />
-
                     <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-bold text-gray-900">Ваш логотип</h2>
                       {logoUrl && (
                         <button
-                          onClick={regenerateLogo}
-                          disabled={remaining === 0}
+                          onClick={generateLogo}
+                          disabled={isGenerating}
                           className="py-2 px-4 flex items-center border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none disabled:opacity-50"
                         >
                           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -233,7 +244,13 @@ function LogoGeneratorContent() {
                         </button>
                       )}
                     </div>
-                    
+
+                    {limitMessage && (
+                      <div className="p-3 mb-4 bg-red-50 text-red-700 rounded-md border border-red-200 text-sm">
+                        {limitMessage}
+                      </div>
+                    )}
+
                     {isGenerating ? (
                       <div className="bg-gray-100 rounded-md flex items-center justify-center h-96">
                         <div className="flex flex-col items-center">
@@ -288,7 +305,6 @@ function LogoGeneratorContent() {
                       <div className="bg-gray-100 rounded-md flex items-center justify-center h-96">
                         <button
                           onClick={generateLogo}
-                          disabled={remaining === 0}
                           className="py-3 px-6 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
                         >
                           Сгенерировать логотип
@@ -303,31 +319,18 @@ function LogoGeneratorContent() {
                       <h2 className="text-xl font-bold text-gray-900 mb-2">Выберите пакет услуг</h2>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Пакет "Только логотип" */}
-                        <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white">
+                        {/* flex-col и mt-auto: списки разной длины, а цена и кнопка должны стоять на одной линии */}
+                        <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white flex flex-col">
                           <h3 className="text-lg font-bold mb-2">Только логотип</h3>
-                          <p className="text-gray-700 mb-4">Получите высококачественный логотип для вашего бизнеса</p>
-                          <ul className="space-y-2 mb-6">
-                            <li className="flex items-start">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-gray-700">Высокое разрешение (SVG, PNG)</span>
-                            </li>
-                            <li className="flex items-start">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-gray-700">Полные права на использование</span>
-                            </li>
-                          </ul>
-                          <div className="text-center">
+                          <p className="text-gray-700 mb-4">Файлы логотипа без водяного знака — сразу после оплаты</p>
+                          <CheckList items={LOGO_FILES} />
+                          <div className="text-center mt-auto">
                             <p className="text-2xl font-bold mb-4">{PRICES.logo} ₽</p>
                             <Link
                               href={{
                                 pathname: '/pages/payment',
-                                query: { 
-                                  product: 'logo', 
+                                query: {
+                                  product: 'logo',
                                   name: name,
                                   keywords: keywords,
                                   logoUrl: logoUrl,
@@ -340,76 +343,39 @@ function LogoGeneratorContent() {
                             </Link>
                           </div>
                         </div>
-                        
-                        {/* Пакет "Полный брендбук" */}
-                        <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white relative">
+
+                        <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white relative flex flex-col">
                           <div className="absolute top-0 right-0 bg-gray-900 text-white px-2 py-1 text-xs font-medium rounded-bl-lg">
                             Популярный выбор
                           </div>
                           <h3 className="text-lg font-bold mb-2">Полный брендбук</h3>
-                          <p className="text-gray-700 mb-4">Комплексное решение для вашего бренда</p>
-                          <ul className="space-y-2 mb-6">
-                            <li className="flex items-start">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-gray-700">Логотип в высоком разрешении</span>
-                            </li>
-                            <li className="flex items-start">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-gray-700">Фирменные цвета и шрифты</span>
-                            </li>
-                            <li className="flex items-start">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-gray-700">Примеры применения бренда</span>
-                            </li>
-                          </ul>
-                          <div className="text-center">
-                           <p className="text-2xl font-bold mb-4">{PRICES.brandbook} ₽</p>
-                            <div className="flex flex-col space-y-2">
-                              <Link
-                                href={{
-                                  pathname: '/pages/brandbook-generator',
-                                  query: {
-                                    name: name,
-                                    keywords: keywords,
-                                    logoUrl: logoUrl,
-                                    logoId: logoId,
-                                    industry: industry,
-                                    style: style
-                                  },
-                                }}
-                                className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none"
-                              >
-                                Предпросмотр брендбука
-                              </Link>
-                            </div>
+                          <p className="text-gray-700 mb-4">
+                            Брендбук в PDF и архив со всеми исходниками. Соберём за несколько минут после оплаты.
+                          </p>
+                          <p className="text-sm font-semibold text-gray-900 mb-3">Что внутри PDF</p>
+                          <CheckList items={BRANDBOOK_PDF} />
+                          <p className="text-sm text-gray-600 mb-6">
+                            В архиве — все версии логотипа в SVG и PNG, макеты носителей, иконки, паттерны и файлы шрифтов.
+                          </p>
+                          <div className="text-center mt-auto">
+                            <p className="text-2xl font-bold mb-4">{PRICES.brandbook} ₽</p>
+                            <Link
+                              href={{
+                                pathname: '/pages/brandbook-generator',
+                                query: {
+                                  name: name,
+                                  keywords: keywords,
+                                  logoUrl: logoUrl,
+                                  logoId: logoId,
+                                  industry: industry,
+                                  style: style
+                                },
+                              }}
+                              className="block w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none"
+                            >
+                              Предпросмотр брендбука
+                            </Link>
                           </div>
-                        </div>
-                      </div>
-                      
-                      {/* Только то, что сборка действительно кладёт в архив */}
-                      <div className="mt-8 border border-gray-200 rounded-lg p-6 bg-white">
-                        <h3 className="text-lg font-bold">Что входит в полный брендбук</h3>
-                        <p className="text-sm text-gray-600 mt-1 mb-5">
-                          PDF на ~15 страниц и архив с исходниками. Готово через несколько минут после оплаты.
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                          {BRANDBOOK_CONTENTS.map(([title, text]) => (
-                            <div key={title} className="flex gap-3">
-                              <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <div>
-                                <p className="font-semibold text-gray-900">{title}</p>
-                                <p className="text-sm text-gray-600">{text}</p>
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       </div>
 

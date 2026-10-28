@@ -71,19 +71,20 @@ export default function NameGeneratorLanding() {
     <>
       <Navbar />
       <main className="pt-16">
-        <section className="bg-white">
-          <div className="mx-auto max-w-4xl px-4 pt-12 text-center sm:px-6 lg:px-8 lg:pt-20">
+        {/* Тот же фон, что у формы: заголовок и генератор читаются одним блоком */}
+        <section className="bg-gray-50">
+          <div className="mx-auto max-w-3xl px-4 pt-12 text-center sm:px-6 lg:px-8 lg:pt-20">
             <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
               Генератор названий для бизнеса с ИИ
             </h1>
-            <p className="mt-5 text-lg text-gray-700">
-              Опишите нишу и пару ключевых слов — получите шесть названий разными приёмами нейминга с пояснением к
-              каждому. Кириллица или латиница, {FREE_GENERATIONS} генераций бесплатно.
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-gray-700">
+              Опишите нишу, выберите стиль логотипа и укажите дополнительную информацию — получите шесть названий
+              разными приёмами нейминга
             </p>
           </div>
         </section>
 
-        <NameGenerator />
+        <NameGenerator withHeading={false} />
 
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <section className="py-12">

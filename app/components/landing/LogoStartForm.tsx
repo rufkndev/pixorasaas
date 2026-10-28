@@ -9,12 +9,17 @@ const FIELD_MAX_LENGTH = 100;
 
 // Для тех, у кого название уже есть: шаг генерации берёт всё из адреса,
 // а вход спросит сам и вернёт обратно с теми же параметрами
-export default function LogoStartForm() {
+// Лендинги ниш подставляют свою нишу и стиль, чтобы человеку оставалось ввести название
+export default function LogoStartForm({
+  defaults = {},
+}: {
+  defaults?: { industry?: string; style?: string; keywordsPlaceholder?: string };
+}) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [keywords, setKeywords] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [style, setStyle] = useState('modern');
+  const [industry, setIndustry] = useState(defaults.industry || '');
+  const [style, setStyle] = useState(defaults.style || 'modern');
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +62,7 @@ export default function LogoStartForm() {
           onChange={(e) => setKeywords(e.target.value)}
           maxLength={FIELD_MAX_LENGTH}
           required
-          placeholder="Например: кофе, уют, свежая обжарка"
+          placeholder={defaults.keywordsPlaceholder || 'Например: кофе, уют, свежая обжарка'}
           className={inputClass}
         />
       </div>

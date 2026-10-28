@@ -9,7 +9,7 @@
     "start": "next start",
     "server": "ts-node-dev --project backend/tsconfig.json backend/index.ts",
     "db:migrate": "ts-node --project backend/tsconfig.json backend/db/migrate.ts",
-    "docker:dev": "docker compose --env-file .env.local --profile dev up --build",
+    "docker:dev": "docker compose --env-file .env.local --profile dev up --build --renew-anon-volumes",
     "docker:prod": "docker compose --env-file .env.production --profile prod up -d --build",
     "typecheck": "tsc --noEmit && tsc -p backend/tsconfig.json --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"

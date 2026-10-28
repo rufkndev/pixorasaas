@@ -29,6 +29,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/brandbook-generator" className={linkClass}>
+                  Брендбук онлайн
+                </Link>
+              </li>
+              <li>
                 <a href={BRANDBOOK_SAMPLE_URL} className={linkClass}>
                   Образец брендбука
                 </a>

@@ -43,7 +43,8 @@ export default async function BlogPostPage({ params }: Props) {
   if (!post) notFound();
 
   const url = absoluteUrl(`/blog/${post.slug}`);
-  const others = POSTS.filter((item) => item.slug !== post.slug).slice(0, 3);
+  const related = (post.related || []).map(findPost).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const others = [...related, ...POSTS.filter((item) => item.slug !== post.slug && !related.includes(item))].slice(0, 3);
 
   const structuredData = [
     {

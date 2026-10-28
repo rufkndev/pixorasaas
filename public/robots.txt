@@ -20,6 +20,10 @@ Disallow: /pages/reset-password
 Disallow: /pages/verify-email
 # Шаги генератора не закрыты: робот должен увидеть на них noindex
 
+# Только для Яндекса: адреса с метками рекламы и посевов склеиваются с адресом без них,
+# иначе каждая ссылка с utm попадала бы в индекс дублем. Google директиву пропускает
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid
+
 # Сервисы SEO-аналитики нагружают сервер и ничего не дают поиску
 User-agent: AhrefsBot
 Disallow: /

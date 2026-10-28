@@ -7,7 +7,6 @@ import LoginButton from '../../components/auth/LoginButton';
 import { apiFetch } from '../../lib/authClient';
 import { describeGenerationError } from '../../lib/generationErrors';
 import { useRouter } from 'next/navigation';
-import GenerationQuota, { QuotaLimits } from '../common/GenerationQuota';
 import { trackEvent } from '../../lib/telemetry';
 
 // Столько же принимает generateNamesSchema на бэкенде
@@ -18,7 +17,8 @@ interface NameSuggestion {
   meaning: string;
 }
 
-export default function NameGenerator() {
+// На витрине /name-generator свой h1, и второй заголовок над формой там лишний
+export default function NameGenerator({ withHeading = true }: { withHeading?: boolean }) {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [keywords, setKeywords] = useState('');
@@ -34,32 +34,11 @@ export default function NameGenerator() {
   const [selectedName, setSelectedName] = useState('');
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  // null — остаток ещё не известен (не загружен или запрос не удался)
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [limits, setLimits] = useState<QuotaLimits | null>(null);
 
   // Первый рендер должен совпасть с серверным, иначе React ругается на гидратацию
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setRemaining(null);
-      return;
-    }
-
-    // Остаток — справочная информация, его недоступность не мешает генерации
-    apiFetch('/api/generation-limits')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data) {
-          setRemaining(data.names);
-          setLimits(data);
-        }
-      })
-      .catch(() => {});
-  }, [user]);
 
   const requestNames = async (exclude: string[]): Promise<NameSuggestion[]> => {
     // Пользователя сервер берёт из сессии, поэтому userId не передаём
@@ -69,10 +48,6 @@ export default function NameGenerator() {
     });
 
     const data = await response.json();
-
-    if (typeof data.remaining === 'number') {
-      setRemaining(data.remaining);
-    }
 
     if (!response.ok) {
       const failure: any = new Error(data.error || 'Ошибка при генерации названий');
@@ -148,10 +123,6 @@ export default function NameGenerator() {
     }
   };
 
-  const RemainingHint = () => (
-    <GenerationQuota remaining={remaining} limits={limits} kind="names" />
-  );
-
   const LoadingSkeleton = () => (
     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
       <div className="h-8 w-3/4 mx-auto bg-gray-200 animate-pulse rounded-md mb-6"></div>
@@ -168,16 +139,18 @@ export default function NameGenerator() {
   return (
     <section id="generator" className="py-12 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Создайте идеальное название для вашего бизнеса
-          </h2>
-          <p className="mt-4 text-lg text-gray-700">
-            Введите информацию о вашем бизнесе, и мы сгенерируем уникальные названия
-          </p>
-        </div>
+        {withHeading && (
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+              Создайте идеальное название для вашего бизнеса
+            </h2>
+            <p className="mt-4 text-lg text-gray-700">
+              Введите информацию о вашем бизнесе, и мы сгенерируем уникальные названия
+            </p>
+          </div>
+        )}
 
-        <div className="mt-12 max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto">
           {!mounted ? (
             <LoadingSkeleton />
           ) : !user && !isAuthLoading ? (
@@ -189,8 +162,6 @@ export default function NameGenerator() {
             <LoadingSkeleton />
           ) : suggestions.length === 0 ? (
             <form onSubmit={generateNames} className="space-y-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
-              <RemainingHint />
-
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
                   {error}
@@ -294,7 +265,7 @@ export default function NameGenerator() {
               <div>
                 <button
                   type="submit"
-                  disabled={isGenerating || remaining === 0}
+                  disabled={isGenerating}
                   className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
                 >
                   {isGenerating ? (
@@ -314,8 +285,6 @@ export default function NameGenerator() {
           ) : (
             <div className="space-y-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900">Выберите название, которое вам нравится:</h3>
-
-              <RemainingHint />
 
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
@@ -344,7 +313,7 @@ export default function NameGenerator() {
 
               <button
                 onClick={loadMoreNames}
-                disabled={isLoadingMore || remaining === 0}
+                disabled={isLoadingMore}
                 className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
               >
                 {isLoadingMore ? 'Подбираем новые варианты...' : 'Ещё варианты'}
