@@ -66,7 +66,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: 'v2-aXR4y3k-FVGzXsJ5amp9GkSHMSq9V8Mkp3p4TzQY',
-    yandex: '34f4c7628ceddfc6',
+    // Два кода — два аккаунта Вебмастера. Старый не удаляем: снятый тег отзывает права
+    // у того, кто подтверждался им
+    yandex: ['34f4c7628ceddfc6', 'f0a69bfb159c0339'],
   },
 };
 
